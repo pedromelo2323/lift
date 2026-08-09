@@ -17,13 +17,12 @@ export function getTodayDateString(): string {
 }
 
 export function formatLastCompleted(dateStr: string | null): string {
-  if (!dateStr) return "Not yet logged";
+  if (!dateStr) return "—";
 
   const date = new Date(`${dateStr}T12:00:00`);
   return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
-    year: "numeric",
   });
 }
 

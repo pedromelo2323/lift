@@ -11,7 +11,7 @@ export type SeedWorkout = {
 
 export const SEED_WORKOUTS: SeedWorkout[] = [
   {
-    name: "Push3",
+    name: "Push",
     exercises: [
       { name: "Incline Bench Press", setsReps: "4×6–8", sortOrder: 1 },
       { name: "Dips", setsReps: "3×8–12", sortOrder: 2 },
@@ -21,7 +21,7 @@ export const SEED_WORKOUTS: SeedWorkout[] = [
     ],
   },
   {
-    name: "Pull3",
+    name: "Pull",
     exercises: [
       { name: "Pull Ups (open form)", setsReps: "4×8–10", sortOrder: 1 },
       { name: "Lat Pulldown", setsReps: "3×8–10", sortOrder: 2 },
@@ -31,7 +31,7 @@ export const SEED_WORKOUTS: SeedWorkout[] = [
     ],
   },
   {
-    name: "Legs3",
+    name: "Leg/Shoulder",
     exercises: [
       { name: "Landmine Snatch", setsReps: "3×8–10", sortOrder: 1 },
       { name: "Shoulder Press", setsReps: "3×10–12", sortOrder: 2 },

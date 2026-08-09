@@ -8,117 +8,131 @@ import {
   reorderExercise,
   updateExerciseName,
 } from "@/lib/actions/workouts";
+import { formatRepRange } from "@/lib/utils/workout";
 import { SessionTable } from "@/components/SessionTable";
 
 type ExerciseListProps = {
   workoutId: string;
   exercises: ExerciseWithData[];
+  isEditing: boolean;
 };
 
-export function ExerciseList({ workoutId, exercises }: ExerciseListProps) {
+function ChevronRight({ expanded }: { expanded: boolean }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={`size-3.5 shrink-0 translate-y-0.5 text-muted-foreground/60 transition-transform duration-200 ${
+        expanded ? "rotate-90" : ""
+      }`}
+    >
+      <path
+        d="M9 18L15 12L9 6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function ExerciseList({ workoutId, exercises, isEditing }: ExerciseListProps) {
   const [expandedId, setExpandedId] = useState<string | null>(
     exercises[0]?.id ?? null,
   );
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [draftName, setDraftName] = useState("");
+  const [names, setNames] = useState<Record<string, string>>(() =>
+    Object.fromEntries(exercises.map((e) => [e.id, e.name])),
+  );
 
   async function handleRename(exerciseId: string, name: string) {
-    await updateExerciseName(exerciseId, workoutId, name);
-    setEditingId(null);
+    const trimmed = name.trim();
+    if (trimmed && trimmed !== exercises.find((e) => e.id === exerciseId)?.name) {
+      await updateExerciseName(exerciseId, workoutId, trimmed);
+    }
+  }
+
+  if (isEditing) {
+    return (
+      <div>
+        {exercises.map((exercise, index) => (
+          <div key={exercise.id} className="flex items-center gap-2 border-b border-border py-3">
+            <input
+              value={names[exercise.id] ?? exercise.name}
+              onChange={(e) =>
+                setNames((current) => ({ ...current, [exercise.id]: e.target.value }))
+              }
+              onBlur={() => handleRename(exercise.id, names[exercise.id] ?? exercise.name)}
+              className="min-w-0 flex-1 bg-transparent text-[17px] outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => reorderExercise(exercise.id, workoutId, "up")}
+              disabled={index === 0}
+              className="px-2 text-[13px] text-muted-foreground disabled:opacity-30"
+            >
+              Up
+            </button>
+            <button
+              type="button"
+              onClick={() => reorderExercise(exercise.id, workoutId, "down")}
+              disabled={index === exercises.length - 1}
+              className="px-2 text-[13px] text-muted-foreground disabled:opacity-30"
+            >
+              Down
+            </button>
+            <button
+              type="button"
+              onClick={() => deleteExercise(exercise.id, workoutId)}
+              className="px-2 text-[13px] text-destructive"
+            >
+              Delete
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => addExercise(workoutId, "New exercise")}
+          className="mt-5 text-[15px] text-muted-foreground"
+        >
+          Add exercise
+        </button>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-1">
-      {exercises.map((exercise, index) => {
+    <div>
+      {exercises.map((exercise) => {
         const isExpanded = expandedId === exercise.id;
+        const repRange = formatRepRange(exercise.sets_reps);
 
         return (
-          <div key={exercise.id} className="border-b border-[#E5E5EA] last:border-b-0">
-            <div className="flex items-center gap-2 py-3">
-              <button
-                type="button"
-                onClick={() => setExpandedId(isExpanded ? null : exercise.id)}
-                className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                aria-expanded={isExpanded}
-              >
-                <span className="w-4 shrink-0 text-[13px] text-[#86868B]">
-                  {isExpanded ? "▼" : "▶"}
+          <div key={exercise.id} className="border-b border-border">
+            <button
+              type="button"
+              onClick={() => setExpandedId(isExpanded ? null : exercise.id)}
+              className="flex w-full items-baseline gap-2 py-3.5 text-left"
+              aria-expanded={isExpanded}
+            >
+              <ChevronRight expanded={isExpanded} />
+              <span className="flex-1 text-[17px] leading-snug">{exercise.name}</span>
+              {repRange ? (
+                <span className="text-[13px] tabular-nums text-muted-foreground/70">
+                  {repRange}
                 </span>
-                {editingId === exercise.id ? (
-                  <input
-                    value={draftName}
-                    autoFocus
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => setDraftName(e.target.value)}
-                    onBlur={() => handleRename(exercise.id, draftName)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleRename(exercise.id, draftName);
-                      if (e.key === "Escape") setEditingId(null);
-                    }}
-                    className="min-w-0 flex-1 bg-transparent text-[17px] font-medium tracking-[-0.02em] text-[#1D1D1F] outline-none"
-                  />
-                ) : (
-                  <span
-                    className="min-w-0 flex-1 truncate text-[17px] font-medium tracking-[-0.02em] text-[#1D1D1F]"
-                    onDoubleClick={() => {
-                      setEditingId(exercise.id);
-                      setDraftName(exercise.name);
-                    }}
-                  >
-                    {exercise.name}
-                  </span>
-                )}
-              </button>
-
-              <div className="flex shrink-0 items-center gap-1">
-                <button
-                  type="button"
-                  disabled={index === 0}
-                  onClick={() => reorderExercise(exercise.id, workoutId, "up")}
-                  className="rounded-md px-2 py-1 text-[12px] text-[#86868B] disabled:opacity-30"
-                  aria-label="Move up"
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  disabled={index === exercises.length - 1}
-                  onClick={() => reorderExercise(exercise.id, workoutId, "down")}
-                  className="rounded-md px-2 py-1 text-[12px] text-[#86868B] disabled:opacity-30"
-                  aria-label="Move down"
-                >
-                  ↓
-                </button>
-                <button
-                  type="button"
-                  onClick={() => deleteExercise(exercise.id, workoutId)}
-                  className="rounded-md px-2 py-1 text-[12px] text-[#86868B]"
-                  aria-label="Delete exercise"
-                >
-                  ×
-                </button>
-              </div>
-            </div>
+              ) : null}
+            </button>
 
             {isExpanded && (
-              <div className="pb-4 pl-6 pr-1">
-                {exercise.sets_reps && (
-                  <p className="mb-3 text-[13px] text-[#86868B]">{exercise.sets_reps}</p>
-                )}
-                <SessionTable exercise={exercise} workoutId={workoutId} />
-              </div>
+              <SessionTable exercise={exercise} workoutId={workoutId} />
             )}
           </div>
         );
       })}
-
-      <button
-        type="button"
-        onClick={() => addExercise(workoutId, "New Exercise")}
-        className="mt-4 w-full rounded-xl border border-dashed border-[#D1D1D6] px-4 py-3 text-[15px] text-[#86868B] transition-colors duration-200 hover:border-[#86868B] hover:text-[#1D1D1F]"
-      >
-        Add exercise
-      </button>
     </div>
   );
 }

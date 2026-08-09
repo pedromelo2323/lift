@@ -4,8 +4,8 @@
   "description": "A personal workout memory app.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FAFAFA",
-  "theme_color": "#FAFAFA",
+  "background_color": "#fcfcfb",
+  "theme_color": "#fcfcfb",
   "orientation": "portrait",
   "icons": [
     {

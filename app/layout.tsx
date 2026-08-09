@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { BugReportButton } from "@/components/BugReportButton";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -22,7 +23,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: "#FAFAFA",
+  themeColor: "#fcfcfb",
 };
 
 export default function RootLayout({
@@ -33,8 +34,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <main className="mx-auto min-h-screen w-full max-w-lg px-5 pb-10 pt-[max(1.5rem,env(safe-area-inset-top))]">
+        <main className="mx-auto min-h-screen w-full max-w-md bg-background">
           {children}
+          <BugReportButton />
         </main>
       </body>
     </html>

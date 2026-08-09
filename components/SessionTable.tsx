@@ -12,10 +12,16 @@ type SessionTableProps = {
   workoutId: string;
 };
 
+function isSuggested(set: SetEntry, latest: SetEntry | undefined): boolean {
+  if (!latest) return false;
+  return set.weight === latest.weight && set.reps === latest.reps;
+}
+
 export function SessionTable({ exercise, workoutId }: SessionTableProps) {
   const today = getTodayDateString();
   const todaySession = exercise.sessions.find((s) => s.session_date === today);
   const historySessions = exercise.sessions.filter((s) => s.session_date !== today).slice(0, 3);
+  const latestHistory = historySessions[0];
 
   const initialRows = useMemo(() => {
     const rows = [...historySessions];
@@ -42,7 +48,7 @@ export function SessionTable({ exercise, workoutId }: SessionTableProps) {
 
   const [rows, setRows] = useState(initialRows);
   const [note, setNote] = useState(exercise.note ?? "");
-  const [showNote, setShowNote] = useState(Boolean(exercise.note));
+  const [editingNote, setEditingNote] = useState(false);
 
   const saveSession = useDebouncedCallback(async (sets: SetEntry[]) => {
     await upsertExerciseSession(exercise.id, workoutId, sets);
@@ -72,84 +78,81 @@ export function SessionTable({ exercise, workoutId }: SessionTableProps) {
   }
 
   return (
-    <div className="space-y-4 pb-2">
-      <div className="overflow-hidden rounded-xl border border-[#E5E5EA]">
-        <table className="w-full table-fixed border-collapse text-left">
-          <thead>
-            <tr className="border-b border-[#E5E5EA] bg-[#FAFAFA]">
-              <th className="w-[22%] px-2 py-2 text-[11px] font-medium uppercase tracking-[0.04em] text-[#86868B]">
-                Date
+    <div className="pb-5 pl-1 pr-1">
+      <table className="w-full border-separate border-spacing-0">
+        <thead>
+          <tr>
+            <th className="w-16 pb-2 text-left text-[11px] font-normal uppercase tracking-wider text-muted-foreground">
+              Date
+            </th>
+            {[1, 2, 3].map((setNumber) => (
+              <th
+                key={setNumber}
+                className="pb-2 text-center text-[11px] font-normal uppercase tracking-wider text-muted-foreground"
+              >
+                Set {setNumber}
               </th>
-              {[1, 2, 3].map((setNumber) => (
-                <th
-                  key={setNumber}
-                  className="px-1 py-2 text-center text-[11px] font-medium uppercase tracking-[0.04em] text-[#86868B]"
-                >
-                  Set {setNumber}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, rowIndex) => {
-              const isToday = row.session_date === today;
-              return (
-                <tr
-                  key={row.id}
-                  className={`border-b border-[#F0F0F2] last:border-b-0 ${
-                    isToday ? "bg-[#FAFAFA]" : "bg-white"
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, rowIndex) => {
+            const isToday = row.session_date === today;
+            return (
+              <tr key={row.id}>
+                <td
+                  className={`border-t border-border py-1 pr-2 text-[13px] ${
+                    isToday ? "font-medium text-foreground" : "text-muted-foreground"
                   }`}
                 >
-                  <td className="px-2 py-1.5 text-[13px] text-[#86868B]">
-                    {formatSessionDate(row.session_date, isToday)}
+                  {formatSessionDate(row.session_date, isToday)}
+                </td>
+                {row.sets.slice(0, 3).map((set, setIndex) => (
+                  <td key={setIndex} className="border-t border-border">
+                    <EditableCell
+                      weight={set.weight}
+                      reps={set.reps}
+                      editable={isToday}
+                      suggested={
+                        isToday &&
+                        isSuggested(set, latestHistory?.sets[setIndex]) &&
+                        set.weight != null
+                      }
+                      onChange={(weight, reps) =>
+                        updateSet(rowIndex, setIndex, weight, reps)
+                      }
+                    />
                   </td>
-                  {row.sets.slice(0, 3).map((set, setIndex) => (
-                    <td key={setIndex} className="px-1 py-1">
-                      {isToday ? (
-                        <EditableCell
-                          weight={set.weight}
-                          reps={set.reps}
-                          isToday
-                          onChange={(weight, reps) =>
-                            updateSet(rowIndex, setIndex, weight, reps)
-                          }
-                        />
-                      ) : (
-                        <span className="block px-1 py-0.5 text-center text-[13px] text-[#1D1D1F]">
-                          {set.weight != null && set.reps != null
-                            ? `${set.weight}×${set.reps}`
-                            : "—"}
-                        </span>
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                ))}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
 
-      {(showNote || note) && (
-        <textarea
+      {editingNote ? (
+        <input
+          autoFocus
           value={note}
-          onChange={(e) => {
-            setNote(e.target.value);
-            saveNote(e.target.value);
+          placeholder="Note"
+          onChange={(e) => setNote(e.target.value)}
+          onBlur={() => {
+            setEditingNote(false);
+            saveNote(note.trim());
           }}
-          placeholder="Add a note..."
-          rows={2}
-          className="w-full resize-none rounded-xl border border-[#E5E5EA] bg-white px-3 py-2 text-[15px] text-[#1D1D1F] outline-none transition-colors duration-200 placeholder:text-[#C7C7CC] focus:border-[#D1D1D6]"
+          onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+          className="mt-4 w-full bg-transparent text-[13px] leading-relaxed text-muted-foreground outline-none"
         />
-      )}
-
-      {!showNote && !note && (
+      ) : (
         <button
           type="button"
-          onClick={() => setShowNote(true)}
-          className="text-[14px] text-[#86868B] transition-colors duration-200 hover:text-[#1D1D1F]"
+          onClick={() => {
+            setNote(exercise.note ?? "");
+            setEditingNote(true);
+          }}
+          className="mt-4 block w-full text-left text-[13px] leading-relaxed text-muted-foreground"
         >
-          Add note
+          {note ? note : <span className="text-muted-foreground/40">Add a note</span>}
         </button>
       )}
     </div>

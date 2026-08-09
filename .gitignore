@@ -38,3 +38,6 @@ next-env.d.ts
 
 # vercel
 .vercel
+
+# local reference (Lovable export)
+LovableCode/

@@ -1,4 +1,4 @@
-import { WorkoutCard } from "@/components/WorkoutCard";
+import { WorkoutRow } from "@/components/WorkoutRow";
 import { SetupNotice } from "@/components/SetupNotice";
 import { getWorkouts } from "@/lib/db/workouts";
 
@@ -6,25 +6,21 @@ export default async function HomePage() {
   const workouts = await getWorkouts();
 
   return (
-    <div>
+    <div className="px-6 pb-16 pt-16">
       <SetupNotice />
 
-      <header className="mb-10 pt-2">
-        <p className="text-[15px] text-[#86868B]">Hey Pedro</p>
-        <h1 className="mt-2 text-[32px] font-semibold tracking-[-0.03em] text-[#1D1D1F]">
-          What are we training today?
-        </h1>
-      </header>
+      <h1 className="text-[32px] font-semibold leading-tight tracking-tight">Hey Pedro</h1>
+      <p className="mt-1 text-[17px] text-muted-foreground">What are we training today?</p>
 
       {workouts.length > 0 ? (
-        <div className="space-y-3">
+        <div className="mt-10">
           {workouts.map((workout) => (
-            <WorkoutCard key={workout.id} workout={workout} />
+            <WorkoutRow key={workout.id} workout={workout} />
           ))}
         </div>
       ) : (
-        <p className="text-[15px] leading-relaxed text-[#86868B]">
-          No workouts yet. Connect Supabase to load your Push3, Pull3, and Legs3 templates.
+        <p className="mt-10 text-[15px] text-muted-foreground">
+          No workouts yet. Connect Supabase to load your templates.
         </p>
       )}
     </div>
