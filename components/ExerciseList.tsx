@@ -10,6 +10,7 @@ import {
 } from "@/lib/actions/workouts";
 import { formatRepRange } from "@/lib/utils/workout";
 import { SessionTable } from "@/components/SessionTable";
+import { useInvalidateWorkouts } from "@/hooks/use-workouts";
 
 type ExerciseListProps = {
   workoutId: string;
@@ -41,6 +42,7 @@ function ChevronRight({ expanded }: { expanded: boolean }) {
 }
 
 export function ExerciseList({ workoutId, exercises, isEditing }: ExerciseListProps) {
+  const invalidate = useInvalidateWorkouts();
   const [expandedId, setExpandedId] = useState<string | null>(
     exercises[0]?.id ?? null,
   );
@@ -52,6 +54,7 @@ export function ExerciseList({ workoutId, exercises, isEditing }: ExerciseListPr
     const trimmed = name.trim();
     if (trimmed && trimmed !== exercises.find((e) => e.id === exerciseId)?.name) {
       await updateExerciseName(exerciseId, workoutId, trimmed);
+      invalidate(workoutId);
     }
   }
 
@@ -70,7 +73,10 @@ export function ExerciseList({ workoutId, exercises, isEditing }: ExerciseListPr
             />
             <button
               type="button"
-              onClick={() => reorderExercise(exercise.id, workoutId, "up")}
+              onClick={async () => {
+                await reorderExercise(exercise.id, workoutId, "up");
+                invalidate(workoutId);
+              }}
               disabled={index === 0}
               className="px-2 text-[13px] text-muted-foreground disabled:opacity-30"
             >
@@ -78,7 +84,10 @@ export function ExerciseList({ workoutId, exercises, isEditing }: ExerciseListPr
             </button>
             <button
               type="button"
-              onClick={() => reorderExercise(exercise.id, workoutId, "down")}
+              onClick={async () => {
+                await reorderExercise(exercise.id, workoutId, "down");
+                invalidate(workoutId);
+              }}
               disabled={index === exercises.length - 1}
               className="px-2 text-[13px] text-muted-foreground disabled:opacity-30"
             >
@@ -86,7 +95,10 @@ export function ExerciseList({ workoutId, exercises, isEditing }: ExerciseListPr
             </button>
             <button
               type="button"
-              onClick={() => deleteExercise(exercise.id, workoutId)}
+              onClick={async () => {
+                await deleteExercise(exercise.id, workoutId);
+                invalidate(workoutId);
+              }}
               className="px-2 text-[13px] text-destructive"
             >
               Delete
@@ -95,7 +107,10 @@ export function ExerciseList({ workoutId, exercises, isEditing }: ExerciseListPr
         ))}
         <button
           type="button"
-          onClick={() => addExercise(workoutId, "New exercise")}
+          onClick={async () => {
+            await addExercise(workoutId, "New exercise");
+            invalidate(workoutId);
+          }}
           className="mt-5 text-[15px] text-muted-foreground"
         >
           Add exercise

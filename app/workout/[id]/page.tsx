@@ -1,7 +1,4 @@
-import { notFound } from "next/navigation";
-import { SetupNotice } from "@/components/SetupNotice";
-import { WorkoutView } from "@/components/WorkoutView";
-import { getWorkoutDetail } from "@/lib/db/workouts";
+import { WorkoutPageClient } from "@/components/WorkoutPageClient";
 
 type WorkoutPageProps = {
   params: Promise<{ id: string }>;
@@ -9,16 +6,5 @@ type WorkoutPageProps = {
 
 export default async function WorkoutPage({ params }: WorkoutPageProps) {
   const { id } = await params;
-  const workout = await getWorkoutDetail(id);
-
-  if (!workout) {
-    notFound();
-  }
-
-  return (
-    <>
-      <SetupNotice />
-      <WorkoutView workout={workout} />
-    </>
-  );
+  return <WorkoutPageClient workoutId={id} />;
 }

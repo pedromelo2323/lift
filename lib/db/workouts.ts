@@ -9,6 +9,8 @@ import type {
 } from "@/types";
 import { getTodayDateString } from "@/lib/utils/date";
 
+let seedChecked = false;
+
 function parseSets(raw: unknown): SetEntry[] {
   if (!Array.isArray(raw)) {
     return [
@@ -31,14 +33,17 @@ function parseSets(raw: unknown): SetEntry[] {
 }
 
 export async function ensureSeeded() {
-  if (!isSupabaseConfigured()) return;
+  if (!isSupabaseConfigured() || seedChecked) return;
 
   const supabase = createClient();
   const { count } = await supabase
     .from("workouts")
     .select("*", { count: "exact", head: true });
 
-  if (count && count > 0) return;
+  if (count && count > 0) {
+    seedChecked = true;
+    return;
+  }
 
   for (const [workoutIndex, workout] of SEED_WORKOUTS.entries()) {
     const { data: createdWorkout, error: workoutError } = await supabase
@@ -63,6 +68,8 @@ export async function ensureSeeded() {
       throw new Error(exerciseError.message);
     }
   }
+
+  seedChecked = true;
 }
 
 export async function getWorkouts(): Promise<WorkoutWithMeta[]> {
@@ -80,33 +87,47 @@ export async function getWorkouts(): Promise<WorkoutWithMeta[]> {
     throw new Error(error?.message ?? "Failed to load workouts");
   }
 
-  const enriched = await Promise.all(
-    workouts.map(async (workout) => {
-      const { data: exercises } = await supabase
-        .from("exercises")
-        .select("id")
-        .eq("workout_id", workout.id);
+  const { data: allExercises } = await supabase
+    .from("exercises")
+    .select("id, workout_id");
 
-      const exerciseIds = exercises?.map((e) => e.id) ?? [];
-      if (exerciseIds.length === 0) {
-        return { ...workout, last_completed_date: null };
+  const exerciseIdsByWorkout = new Map<string, string[]>();
+  for (const exercise of allExercises ?? []) {
+    const list = exerciseIdsByWorkout.get(exercise.workout_id) ?? [];
+    list.push(exercise.id);
+    exerciseIdsByWorkout.set(exercise.workout_id, list);
+  }
+
+  const allExerciseIds = (allExercises ?? []).map((e) => e.id);
+  const lastDateByExercise = new Map<string, string>();
+
+  if (allExerciseIds.length > 0) {
+    const { data: sessions } = await supabase
+      .from("exercise_sessions")
+      .select("exercise_id, session_date")
+      .in("exercise_id", allExerciseIds)
+      .order("session_date", { ascending: false });
+
+    for (const session of sessions ?? []) {
+      if (!lastDateByExercise.has(session.exercise_id)) {
+        lastDateByExercise.set(session.exercise_id, session.session_date);
       }
+    }
+  }
 
-      const { data: sessions } = await supabase
-        .from("exercise_sessions")
-        .select("session_date")
-        .in("exercise_id", exerciseIds)
-        .order("session_date", { ascending: false })
-        .limit(1);
+  return workouts.map((workout) => {
+    const exerciseIds = exerciseIdsByWorkout.get(workout.id) ?? [];
+    let last_completed_date: string | null = null;
 
-      return {
-        ...workout,
-        last_completed_date: sessions?.[0]?.session_date ?? null,
-      };
-    }),
-  );
+    for (const exerciseId of exerciseIds) {
+      const date = lastDateByExercise.get(exerciseId);
+      if (date && (!last_completed_date || date > last_completed_date)) {
+        last_completed_date = date;
+      }
+    }
 
-  return enriched;
+    return { ...workout, last_completed_date };
+  });
 }
 
 export async function getWorkoutDetail(workoutId: string): Promise<WorkoutDetail | null> {

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { updateWorkoutName } from "@/lib/actions/workouts";
+import { useInvalidateWorkouts } from "@/hooks/use-workouts";
 
 type WorkoutHeaderProps = {
   workoutId: string;
@@ -33,11 +34,13 @@ function ChevronLeft() {
 }
 
 export function WorkoutHeader({ workoutId, name, isEditing, onToggleEdit }: WorkoutHeaderProps) {
+  const invalidate = useInvalidateWorkouts();
   const [editingTitle, setEditingTitle] = useState(false);
   const [draft, setDraft] = useState(name);
 
   async function save(nextName: string) {
     await updateWorkoutName(workoutId, nextName.trim() || name);
+    invalidate(workoutId);
     setEditingTitle(false);
   }
 

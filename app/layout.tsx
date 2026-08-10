@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { BugReportButton } from "@/components/BugReportButton";
+import { Providers } from "@/components/Providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -35,7 +36,9 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <main className="mx-auto min-h-screen w-full max-w-md bg-background">
-          {children}
+          <Providers>
+            {children}
+          </Providers>
           <BugReportButton />
         </main>
       </body>
