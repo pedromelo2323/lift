@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchWorkoutDetail, fetchWorkouts, workoutKey, workoutsKey } from "@/lib/api/workouts";
+import type { WorkoutDetail } from "@/types";
 
 export function useWorkouts() {
   return useQuery({
@@ -13,6 +14,7 @@ export function useWorkoutDetail(workoutId: string) {
     queryKey: workoutKey(workoutId),
     queryFn: () => fetchWorkoutDetail(workoutId),
     enabled: Boolean(workoutId),
+    placeholderData: (previous) => previous,
   });
 }
 
@@ -29,13 +31,13 @@ export function usePrefetchWorkouts() {
   };
 }
 
-export function useInvalidateWorkouts() {
+export function usePatchWorkoutDetail(workoutId: string) {
   const queryClient = useQueryClient();
+  const detailKey = workoutKey(workoutId);
 
-  return (workoutId?: string) => {
-    queryClient.invalidateQueries({ queryKey: workoutsKey });
-    if (workoutId) {
-      queryClient.invalidateQueries({ queryKey: workoutKey(workoutId) });
-    }
+  return (updater: (current: WorkoutDetail) => WorkoutDetail) => {
+    queryClient.setQueryData<WorkoutDetail>(detailKey, (current) =>
+      current ? updater(current) : current,
+    );
   };
 }

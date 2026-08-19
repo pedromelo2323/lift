@@ -3,14 +3,12 @@
 import { useMemo, useState } from "react";
 import type { ExerciseWithData, SetEntry } from "@/types";
 import { formatSessionDate, getTodayDateString } from "@/lib/utils/date";
-import { upsertExerciseSession, updateExerciseNote } from "@/lib/actions/workouts";
+import { upsertExerciseSession, updateExerciseNote } from "@/lib/workouts/mutations";
 import { EditableCell } from "@/components/EditableCell";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
-import { useInvalidateWorkouts } from "@/hooks/use-workouts";
 
 type SessionTableProps = {
   exercise: ExerciseWithData;
-  workoutId: string;
 };
 
 function isSuggested(set: SetEntry, latest: SetEntry | undefined): boolean {
@@ -18,8 +16,7 @@ function isSuggested(set: SetEntry, latest: SetEntry | undefined): boolean {
   return set.weight === latest.weight && set.reps === latest.reps;
 }
 
-export function SessionTable({ exercise, workoutId }: SessionTableProps) {
-  const invalidate = useInvalidateWorkouts();
+export function SessionTable({ exercise }: SessionTableProps) {
   const today = getTodayDateString();
   const todaySession = exercise.sessions.find((s) => s.session_date === today);
   const historySessions = exercise.sessions.filter((s) => s.session_date !== today).slice(0, 3);
@@ -53,13 +50,11 @@ export function SessionTable({ exercise, workoutId }: SessionTableProps) {
   const [editingNote, setEditingNote] = useState(false);
 
   const saveSession = useDebouncedCallback(async (sets: SetEntry[]) => {
-    await upsertExerciseSession(exercise.id, workoutId, sets);
-    invalidate(workoutId);
+    await upsertExerciseSession(exercise.id, sets);
   }, 350);
 
   const saveNote = useDebouncedCallback(async (nextNote: string) => {
-    await updateExerciseNote(exercise.id, workoutId, nextNote);
-    invalidate(workoutId);
+    await updateExerciseNote(exercise.id, nextNote);
   }, 400);
 
   function updateSet(rowIndex: number, setIndex: number, weight: number | null, reps: number | null) {

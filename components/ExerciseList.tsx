@@ -2,15 +2,9 @@
 
 import { useState } from "react";
 import type { ExerciseWithData } from "@/types";
-import {
-  addExercise,
-  deleteExercise,
-  reorderExercise,
-  updateExerciseName,
-} from "@/lib/actions/workouts";
 import { formatRepRange } from "@/lib/utils/workout";
 import { SessionTable } from "@/components/SessionTable";
-import { useInvalidateWorkouts } from "@/hooks/use-workouts";
+import { useWorkoutMutations } from "@/hooks/use-workout-mutations";
 
 type ExerciseListProps = {
   workoutId: string;
@@ -42,7 +36,8 @@ function ChevronRight({ expanded }: { expanded: boolean }) {
 }
 
 export function ExerciseList({ workoutId, exercises, isEditing }: ExerciseListProps) {
-  const invalidate = useInvalidateWorkouts();
+  const { renameExercise, createExercise, removeExercise, moveExercise } =
+    useWorkoutMutations(workoutId);
   const [expandedId, setExpandedId] = useState<string | null>(
     exercises[0]?.id ?? null,
   );
@@ -50,11 +45,11 @@ export function ExerciseList({ workoutId, exercises, isEditing }: ExerciseListPr
     Object.fromEntries(exercises.map((e) => [e.id, e.name])),
   );
 
-  async function handleRename(exerciseId: string, name: string) {
+  function handleRename(exerciseId: string, name: string) {
     const trimmed = name.trim();
-    if (trimmed && trimmed !== exercises.find((e) => e.id === exerciseId)?.name) {
-      await updateExerciseName(exerciseId, workoutId, trimmed);
-      invalidate(workoutId);
+    const current = exercises.find((e) => e.id === exerciseId)?.name;
+    if (trimmed && trimmed !== current) {
+      renameExercise.mutate({ exerciseId, name: trimmed });
     }
   }
 
@@ -73,10 +68,7 @@ export function ExerciseList({ workoutId, exercises, isEditing }: ExerciseListPr
             />
             <button
               type="button"
-              onClick={async () => {
-                await reorderExercise(exercise.id, workoutId, "up");
-                invalidate(workoutId);
-              }}
+              onClick={() => moveExercise.mutate({ exerciseId: exercise.id, direction: "up" })}
               disabled={index === 0}
               className="px-2 text-[13px] text-muted-foreground disabled:opacity-30"
             >
@@ -84,10 +76,7 @@ export function ExerciseList({ workoutId, exercises, isEditing }: ExerciseListPr
             </button>
             <button
               type="button"
-              onClick={async () => {
-                await reorderExercise(exercise.id, workoutId, "down");
-                invalidate(workoutId);
-              }}
+              onClick={() => moveExercise.mutate({ exerciseId: exercise.id, direction: "down" })}
               disabled={index === exercises.length - 1}
               className="px-2 text-[13px] text-muted-foreground disabled:opacity-30"
             >
@@ -95,10 +84,7 @@ export function ExerciseList({ workoutId, exercises, isEditing }: ExerciseListPr
             </button>
             <button
               type="button"
-              onClick={async () => {
-                await deleteExercise(exercise.id, workoutId);
-                invalidate(workoutId);
-              }}
+              onClick={() => removeExercise.mutate(exercise.id)}
               className="px-2 text-[13px] text-destructive"
             >
               Delete
@@ -107,10 +93,7 @@ export function ExerciseList({ workoutId, exercises, isEditing }: ExerciseListPr
         ))}
         <button
           type="button"
-          onClick={async () => {
-            await addExercise(workoutId, "New exercise");
-            invalidate(workoutId);
-          }}
+          onClick={() => createExercise.mutate("New exercise")}
           className="mt-5 text-[15px] text-muted-foreground"
         >
           Add exercise
@@ -143,7 +126,7 @@ export function ExerciseList({ workoutId, exercises, isEditing }: ExerciseListPr
             </button>
 
             {isExpanded && (
-              <SessionTable exercise={exercise} workoutId={workoutId} />
+              <SessionTable exercise={exercise} />
             )}
           </div>
         );
