@@ -9,44 +9,90 @@ const PRESETS = [
   { label: "3:00", seconds: 180 },
 ] as const;
 
+/** Comfortable thumb target (~56px). */
+const FAB_SIZE = "h-14 w-14";
+
 function formatRemaining(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-function playDoneChime() {
+let sharedAudioCtx: AudioContext | null = null;
+
+function getAudioContext(): AudioContext | null {
   try {
     const Ctx =
       window.AudioContext ||
       (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
+    if (!Ctx) return null;
+    if (!sharedAudioCtx || sharedAudioCtx.state === "closed") {
+      sharedAudioCtx = new Ctx();
+    }
+    return sharedAudioCtx;
+  } catch {
+    return null;
+  }
+}
+
+/** Unlock audio on a user gesture so the finish chime works on iOS. */
+async function unlockAudio() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  if (ctx.state === "suspended") {
+    try {
+      await ctx.resume();
+    } catch {
+      // ignore
+    }
+  }
+}
+
+function playDoneChime() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  void ctx.resume().then(() => {
     const now = ctx.currentTime;
-    for (const [i, freq] of [880, 1174].entries()) {
+    // Three rising notes — clearer than a short blip, still soft.
+    const notes = [
+      { freq: 659.25, at: 0, dur: 0.18 },
+      { freq: 830.61, at: 0.14, dur: 0.18 },
+      { freq: 1046.5, at: 0.28, dur: 0.32 },
+    ];
+
+    for (const note of notes) {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "sine";
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.08, now + 0.02 + i * 0.12);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18 + i * 0.12);
+      osc.frequency.value = note.freq;
+      const t0 = now + note.at;
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.14, t0 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + note.dur);
       osc.connect(gain);
       gain.connect(ctx.destination);
-      osc.start(now + i * 0.12);
-      osc.stop(now + 0.22 + i * 0.12);
+      osc.start(t0);
+      osc.stop(t0 + note.dur + 0.02);
     }
-    window.setTimeout(() => void ctx.close(), 600);
+  });
+}
+
+function notifyTimerDone() {
+  playDoneChime();
+  try {
+    // iOS ignores vibrate; Android gets a clear pattern.
+    navigator.vibrate?.([120, 70, 120, 70, 220]);
   } catch {
-    // Audio is optional.
+    // ignore
   }
 }
 
 function StopwatchIcon() {
   return (
     <svg
-      width="20"
-      height="20"
+      width="24"
+      height="24"
       viewBox="0 0 24 24"
       fill="none"
       aria-hidden="true"
@@ -59,6 +105,23 @@ function StopwatchIcon() {
       <path d="M12 2v3" />
       <circle cx="12" cy="14" r="8" />
       <path d="M12 10v4l2.5 1.5" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+    >
+      <path d="M6 6l12 12M18 6L6 18" />
     </svg>
   );
 }
@@ -90,6 +153,13 @@ export function RestTimer() {
     }, 220);
   }, []);
 
+  const cancelTimer = useCallback(() => {
+    setEndAt(null);
+    setJustFinished(false);
+    finishedForRef.current = null;
+    closePicker();
+  }, [closePicker]);
+
   useEffect(() => {
     if (!running) return;
     const id = window.setInterval(() => setNow(Date.now()), 200);
@@ -103,13 +173,8 @@ export function RestTimer() {
     setEndAt(null);
     setJustFinished(true);
     closePicker();
-    playDoneChime();
-    try {
-      navigator.vibrate?.([160, 80, 160]);
-    } catch {
-      // ignore
-    }
-    const timeout = window.setTimeout(() => setJustFinished(false), 1600);
+    notifyTimerDone();
+    const timeout = window.setTimeout(() => setJustFinished(false), 1800);
     return () => window.clearTimeout(timeout);
   }, [closePicker, endAt, remaining]);
 
@@ -143,6 +208,7 @@ export function RestTimer() {
   );
 
   function start(seconds: number) {
+    void unlockAudio();
     finishedForRef.current = null;
     setJustFinished(false);
     setEndAt(Date.now() + seconds * 1000);
@@ -151,11 +217,7 @@ export function RestTimer() {
   }
 
   function handleMainClick() {
-    if (running) {
-      setEndAt(null);
-      closePicker();
-      return;
-    }
+    if (running || justFinished) return;
     if (pickerOpen) {
       closePicker();
       return;
@@ -166,9 +228,11 @@ export function RestTimer() {
     }
     setLeaving(false);
     setPickerOpen(true);
+    void unlockAudio();
   }
 
-  const fabBottom = "calc(1.25rem + 3.75rem + env(safe-area-inset-bottom))";
+  // Sit above the larger bug FAB with a comfortable gap.
+  const fabBottom = "calc(1.25rem + 4.5rem + env(safe-area-inset-bottom))";
   const orderedPresets = [...PRESETS].reverse();
 
   return (
@@ -195,7 +259,7 @@ export function RestTimer() {
                 key={preset.seconds}
                 type="button"
                 onClick={() => start(preset.seconds)}
-                className={`rest-timer-pill flex h-10 min-w-[52px] items-center justify-center rounded-full bg-background px-3.5 text-[13px] font-medium tabular-nums text-foreground shadow-[0_2px_10px_rgba(0,0,0,0.08)] active:scale-[0.97] ${
+                className={`rest-timer-pill flex h-11 min-w-[56px] items-center justify-center rounded-full bg-background px-4 text-[14px] font-medium tabular-nums text-foreground shadow-[0_2px_10px_rgba(0,0,0,0.08)] active:scale-[0.97] ${
                   leaving ? "rest-timer-pill-out" : "rest-timer-pill-in"
                 }`}
                 style={{
@@ -209,30 +273,43 @@ export function RestTimer() {
             );
           })}
 
-        <button
-          type="button"
-          onClick={handleMainClick}
-          aria-label={
-            running
-              ? `Rest timer ${formatRemaining(remaining)}, tap to cancel`
-              : pickerOpen
-                ? "Close rest timer"
-                : "Start rest timer"
-          }
-          className={`flex h-12 w-12 items-center justify-center rounded-full shadow-[0_2px_12px_rgba(0,0,0,0.1)] transition-[transform,background-color,color] duration-200 active:scale-95 ${
-            running || justFinished
-              ? "bg-foreground text-background"
-              : "bg-background text-foreground"
-          }`}
-        >
-          {running || justFinished ? (
-            <span className="text-[13px] font-medium tabular-nums">
-              {justFinished ? "0:00" : formatRemaining(remaining)}
-            </span>
-          ) : (
-            <StopwatchIcon />
+        <div className="flex items-center gap-2">
+          {(running || justFinished) && (
+            <button
+              type="button"
+              onClick={cancelTimer}
+              aria-label="Cancel rest timer"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-background text-foreground shadow-[0_2px_12px_rgba(0,0,0,0.1)] transition-transform duration-200 active:scale-95"
+            >
+              <CloseIcon />
+            </button>
           )}
-        </button>
+
+          <button
+            type="button"
+            onClick={handleMainClick}
+            aria-label={
+              running
+                ? `Rest timer ${formatRemaining(remaining)}`
+                : pickerOpen
+                  ? "Close rest timer"
+                  : "Start rest timer"
+            }
+            className={`flex ${FAB_SIZE} items-center justify-center rounded-full shadow-[0_2px_12px_rgba(0,0,0,0.1)] transition-[transform,background-color,color] duration-200 active:scale-95 ${
+              running || justFinished
+                ? "bg-foreground text-background"
+                : "bg-background text-foreground"
+            }`}
+          >
+            {running || justFinished ? (
+              <span className="text-[15px] font-medium tabular-nums">
+                {justFinished ? "0:00" : formatRemaining(remaining)}
+              </span>
+            ) : (
+              <StopwatchIcon />
+            )}
+          </button>
+        </div>
       </div>
     </>
   );

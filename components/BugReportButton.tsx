@@ -12,8 +12,8 @@ import type { BugKind, BugReport } from "@/types/bugs";
 function BugIcon() {
   return (
     <svg
-      width="20"
-      height="20"
+      width="24"
+      height="24"
       viewBox="0 0 24 24"
       fill="none"
       aria-hidden="true"
@@ -92,7 +92,7 @@ export function BugReportButton() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Report a bug or idea"
-        className="fixed right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-foreground text-background shadow-lg transition-transform duration-200 active:scale-95"
+        className="fixed right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-foreground text-background shadow-lg transition-transform duration-200 active:scale-95"
         style={{ bottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}
       >
         <BugIcon />
