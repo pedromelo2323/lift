@@ -1,9 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type { ExerciseWithData, SetEntry } from "@/types";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import type { ExerciseSession, ExerciseWithData, SetEntry, WorkoutDetail } from "@/types";
 import { formatSessionDate, getTodayDateString } from "@/lib/utils/date";
 import { upsertExerciseSession, updateExerciseNote } from "@/lib/workouts/mutations";
+import {
+  clearSessionDraft,
+  readSessionDraft,
+  writeSessionDraft,
+} from "@/lib/workouts/session-draft";
+import { workoutKey } from "@/lib/api/workouts";
 import { EditableCell } from "@/components/EditableCell";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
 
@@ -16,59 +23,133 @@ function isSuggested(set: SetEntry, latest: SetEntry | undefined): boolean {
   return set.weight === latest.weight && set.reps === latest.reps;
 }
 
-export function SessionTable({ exercise }: SessionTableProps) {
-  const today = getTodayDateString();
+function buildInitialRows(exercise: ExerciseWithData, today: string): ExerciseSession[] {
   const todaySession = exercise.sessions.find((s) => s.session_date === today);
   const historySessions = exercise.sessions.filter((s) => s.session_date !== today).slice(0, 3);
+  const rows = [...historySessions];
+  const draft = readSessionDraft(exercise.id, today);
+
+  if (draft) {
+    rows.push({
+      id: todaySession?.id ?? `local-${exercise.id}`,
+      exercise_id: exercise.id,
+      session_date: today,
+      sets: draft.sets,
+      created_at: todaySession?.created_at ?? new Date().toISOString(),
+    });
+    return rows;
+  }
+
+  if (todaySession) {
+    rows.push(todaySession);
+  } else {
+    const latest = historySessions[0];
+    rows.push({
+      id: `local-${exercise.id}`,
+      exercise_id: exercise.id,
+      session_date: today,
+      sets: latest
+        ? latest.sets.map((set) => ({ ...set }))
+        : [
+            { weight: null, reps: null },
+            { weight: null, reps: null },
+            { weight: null, reps: null },
+          ],
+      created_at: new Date().toISOString(),
+    });
+  }
+  return rows;
+}
+
+export function SessionTable({ exercise }: SessionTableProps) {
+  const today = getTodayDateString();
+  const queryClient = useQueryClient();
+  const historySessions = useMemo(
+    () => exercise.sessions.filter((s) => s.session_date !== today).slice(0, 3),
+    [exercise.sessions, today],
+  );
   const latestHistory = historySessions[0];
 
-  const initialRows = useMemo(() => {
-    const rows = [...historySessions];
-    if (todaySession) {
-      rows.push(todaySession);
-    } else {
-      const latest = historySessions[0];
-      rows.push({
-        id: `local-${exercise.id}`,
-        exercise_id: exercise.id,
-        session_date: today,
-        sets: latest
-          ? latest.sets.map((set) => ({ ...set }))
-          : [
-              { weight: null, reps: null },
-              { weight: null, reps: null },
-              { weight: null, reps: null },
-            ],
-        created_at: new Date().toISOString(),
-      });
-    }
-    return rows;
-  }, [exercise.id, historySessions, today, todaySession]);
-
-  const [rows, setRows] = useState(initialRows);
+  const [rows, setRows] = useState(() => buildInitialRows(exercise, today));
   const [note, setNote] = useState(exercise.note ?? "");
   const [editingNote, setEditingNote] = useState(false);
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
 
-  const saveSession = useDebouncedCallback(async (sets: SetEntry[]) => {
-    await upsertExerciseSession(exercise.id, sets);
+  const persistToday = (sets: SetEntry[], keepalive = false) => {
+    writeSessionDraft(exercise.id, today, sets);
+    queryClient.setQueryData<WorkoutDetail>(workoutKey(exercise.workout_id), (current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        exercises: current.exercises.map((item) => {
+          if (item.id !== exercise.id) return item;
+          const withoutToday = item.sessions.filter((session) => session.session_date !== today);
+          const existingToday = item.sessions.find((session) => session.session_date === today);
+          return {
+            ...item,
+            sessions: [
+              ...withoutToday,
+              {
+                id: existingToday?.id ?? `local-${exercise.id}`,
+                exercise_id: exercise.id,
+                session_date: today,
+                sets,
+                created_at: existingToday?.created_at ?? new Date().toISOString(),
+              },
+            ],
+          };
+        }),
+      };
+    });
+
+    void upsertExerciseSession(exercise.id, sets, keepalive ? { keepalive: true } : undefined)
+      .then(() => clearSessionDraft(exercise.id, today))
+      .catch(() => {
+        // Keep the draft so a reload can restore unsaved numbers.
+      });
+  };
+  const persistRef = useRef(persistToday);
+  persistRef.current = persistToday;
+
+  const saveSession = useDebouncedCallback((sets: SetEntry[]) => {
+    persistRef.current(sets);
   }, 350);
 
-  const saveNote = useDebouncedCallback(async (nextNote: string) => {
-    await updateExerciseNote(exercise.id, nextNote);
+  const saveNote = useDebouncedCallback((nextNote: string) => {
+    void updateExerciseNote(exercise.id, nextNote);
   }, 400);
+
+  useEffect(() => {
+    const flush = () => {
+      saveSession.flush();
+      const todayRow = rowsRef.current.find((row) => row.session_date === today);
+      if (todayRow && readSessionDraft(exercise.id, today)) {
+        persistRef.current(todayRow.sets, true);
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [exercise.id, today, saveSession]);
 
   function updateSet(rowIndex: number, setIndex: number, weight: number | null, reps: number | null) {
     setRows((current) => {
       const next = current.map((row, i) => {
         if (i !== rowIndex) return row;
-        const sets = row.sets.map((set, j) =>
-          j === setIndex ? { weight, reps } : set,
-        );
+        const sets = row.sets.map((set, j) => (j === setIndex ? { weight, reps } : set));
         return { ...row, sets };
       });
 
       const todayRow = next.find((row) => row.session_date === today);
       if (todayRow) {
+        writeSessionDraft(exercise.id, today, todayRow.sets);
         saveSession(todayRow.sets);
       }
 
@@ -117,8 +198,8 @@ export function SessionTable({ exercise }: SessionTableProps) {
                         isSuggested(set, latestHistory?.sets[setIndex]) &&
                         set.weight != null
                       }
-                      onChange={(weight, reps) =>
-                        updateSet(rowIndex, setIndex, weight, reps)
+                      onChange={(nextWeight, nextReps) =>
+                        updateSet(rowIndex, setIndex, nextWeight, nextReps)
                       }
                     />
                   </td>

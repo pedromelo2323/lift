@@ -29,21 +29,56 @@ export function EditableCell({
   const [weightStr, setWeightStr] = useState("");
   const [repsStr, setRepsStr] = useState("");
   const weightRef = useRef<HTMLInputElement>(null);
+  const editingRef = useRef(false);
+  const valuesRef = useRef({ weight, reps, weightStr, repsStr, onChange });
+
+  editingRef.current = editing;
+  valuesRef.current = { weight, reps, weightStr, repsStr, onChange };
 
   const display = formatSetValue(weight, reps);
 
-  const commit = useCallback(() => {
+  const commit = useCallback((opts?: { allowEmptyOverwrite?: boolean }) => {
+    const current = valuesRef.current;
     setEditing(false);
-    const nextWeight = parseNumber(weightStr);
-    const nextReps = parseNumber(repsStr);
-    if (nextWeight !== weight || nextReps !== reps) {
-      onChange(nextWeight, nextReps);
+    editingRef.current = false;
+    const nextWeight = parseNumber(current.weightStr);
+    const nextReps = parseNumber(current.repsStr);
+
+    // iOS can clear focused inputs when the app is backgrounded. Don't treat
+    // that as the user wiping a set they were mid-edit.
+    if (
+      !opts?.allowEmptyOverwrite &&
+      nextWeight == null &&
+      nextReps == null &&
+      (current.weight != null || current.reps != null)
+    ) {
+      return;
     }
-  }, [onChange, reps, repsStr, weight, weightStr]);
+
+    if (nextWeight !== current.weight || nextReps !== current.reps) {
+      current.onChange(nextWeight, nextReps);
+    }
+  }, []);
 
   useEffect(() => {
     if (editing) weightRef.current?.focus();
   }, [editing]);
+
+  useEffect(() => {
+    const flushIfEditing = () => {
+      if (!editingRef.current) return;
+      commit({ allowEmptyOverwrite: false });
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flushIfEditing();
+    };
+    window.addEventListener("pagehide", flushIfEditing);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", flushIfEditing);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [commit]);
 
   function start() {
     if (!editable) return;
@@ -57,7 +92,9 @@ export function EditableCell({
       <div
         className="flex items-center justify-center gap-0.5 rounded-md bg-secondary px-1 py-1"
         onBlur={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node)) commit();
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            commit({ allowEmptyOverwrite: true });
+          }
         }}
       >
         <input
@@ -65,7 +102,7 @@ export function EditableCell({
           value={weightStr}
           inputMode="decimal"
           onChange={(e) => setWeightStr(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && commit()}
+          onKeyDown={(e) => e.key === "Enter" && commit({ allowEmptyOverwrite: true })}
           aria-label="Weight"
           className="w-8 bg-transparent text-right text-[15px] tabular-nums outline-none"
         />
@@ -74,7 +111,7 @@ export function EditableCell({
           value={repsStr}
           inputMode="numeric"
           onChange={(e) => setRepsStr(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && commit()}
+          onKeyDown={(e) => e.key === "Enter" && commit({ allowEmptyOverwrite: true })}
           aria-label="Reps"
           className="w-7 bg-transparent text-left text-[15px] tabular-nums outline-none"
         />

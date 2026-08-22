@@ -33,16 +33,47 @@ export async function updateExerciseNote(exerciseId: string, note: string) {
   if (error) throw new Error(error.message);
 }
 
-export async function upsertExerciseSession(exerciseId: string, sets: SetEntry[]) {
+export async function upsertExerciseSession(
+  exerciseId: string,
+  sets: SetEntry[],
+  options?: { keepalive?: boolean },
+) {
   const sessionDate = getTodayDateString();
-  const { error } = await supabase().from("exercise_sessions").upsert(
-    {
-      exercise_id: exerciseId,
-      session_date: sessionDate,
-      sets,
-    },
-    { onConflict: "exercise_id,session_date" },
-  );
+  const payload = {
+    exercise_id: exerciseId,
+    session_date: sessionDate,
+    sets,
+  };
+
+  // iOS kills pending XHR when the PWA is backgrounded; keepalive can finish the write.
+  if (options?.keepalive) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !key) throw new Error("Missing Supabase environment variables.");
+
+    const response = await fetch(
+      `${url}/rest/v1/exercise_sessions?on_conflict=exercise_id,session_date`,
+      {
+        method: "POST",
+        keepalive: true,
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+          "Content-Type": "application/json",
+          Prefer: "resolution=merge-duplicates,return=minimal",
+        },
+        body: JSON.stringify(payload),
+      },
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to save session (${response.status})`);
+    }
+    return;
+  }
+
+  const { error } = await supabase().from("exercise_sessions").upsert(payload, {
+    onConflict: "exercise_id,session_date",
+  });
   if (error) throw new Error(error.message);
 }
 
