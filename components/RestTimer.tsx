@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const PRESETS = [
   { label: "1:00", seconds: 60 },
@@ -17,7 +17,9 @@ function formatRemaining(totalSeconds: number) {
 
 function playDoneChime() {
   try {
-    const Ctx = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    const Ctx =
+      window.AudioContext ||
+      (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctx) return;
     const ctx = new Ctx();
     const now = ctx.currentTime;
@@ -40,7 +42,7 @@ function playDoneChime() {
   }
 }
 
-function ClockIcon() {
+function StopwatchIcon() {
   return (
     <svg
       width="20"
@@ -53,23 +55,40 @@ function ClockIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
+      <path d="M10 2h4" />
+      <path d="M12 2v3" />
+      <circle cx="12" cy="14" r="8" />
+      <path d="M12 10v4l2.5 1.5" />
     </svg>
   );
 }
 
 export function RestTimer() {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const [endAt, setEndAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [justFinished, setJustFinished] = useState(false);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const finishedForRef = useRef<number | null>(null);
+  const leaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pickerOpenRef = useRef(false);
 
-  const remaining =
-    endAt == null ? 0 : Math.max(0, Math.ceil((endAt - now) / 1000));
+  const remaining = endAt == null ? 0 : Math.max(0, Math.ceil((endAt - now) / 1000));
   const running = endAt != null && remaining > 0;
+  const showPresets = pickerOpen || leaving;
+  pickerOpenRef.current = pickerOpen;
+
+  const closePicker = useCallback(() => {
+    if (!pickerOpenRef.current) return;
+    setPickerOpen(false);
+    setLeaving(true);
+    if (leaveTimeoutRef.current) clearTimeout(leaveTimeoutRef.current);
+    leaveTimeoutRef.current = setTimeout(() => {
+      setLeaving(false);
+      leaveTimeoutRef.current = null;
+    }, 220);
+  }, []);
 
   useEffect(() => {
     if (!running) return;
@@ -83,7 +102,7 @@ export function RestTimer() {
     finishedForRef.current = endAt;
     setEndAt(null);
     setJustFinished(true);
-    setPickerOpen(false);
+    closePicker();
     playDoneChime();
     try {
       navigator.vibrate?.([160, 80, 160]);
@@ -92,7 +111,7 @@ export function RestTimer() {
     }
     const timeout = window.setTimeout(() => setJustFinished(false), 1600);
     return () => window.clearTimeout(timeout);
-  }, [endAt, remaining]);
+  }, [closePicker, endAt, remaining]);
 
   useEffect(() => {
     if (!running || !("wakeLock" in navigator)) return;
@@ -107,7 +126,7 @@ export function RestTimer() {
         wakeLockRef.current = lock;
       })
       .catch(() => {
-        // Wake Lock is optional (unsupported / battery saver).
+        // Wake Lock is optional.
       });
     return () => {
       cancelled = true;
@@ -116,24 +135,41 @@ export function RestTimer() {
     };
   }, [running]);
 
+  useEffect(
+    () => () => {
+      if (leaveTimeoutRef.current) clearTimeout(leaveTimeoutRef.current);
+    },
+    [],
+  );
+
   function start(seconds: number) {
     finishedForRef.current = null;
     setJustFinished(false);
     setEndAt(Date.now() + seconds * 1000);
     setNow(Date.now());
-    setPickerOpen(false);
+    closePicker();
   }
 
   function handleMainClick() {
     if (running) {
       setEndAt(null);
-      setPickerOpen(false);
+      closePicker();
       return;
     }
-    setPickerOpen((open) => !open);
+    if (pickerOpen) {
+      closePicker();
+      return;
+    }
+    if (leaveTimeoutRef.current) {
+      clearTimeout(leaveTimeoutRef.current);
+      leaveTimeoutRef.current = null;
+    }
+    setLeaving(false);
+    setPickerOpen(true);
   }
 
   const fabBottom = "calc(1.25rem + 3.75rem + env(safe-area-inset-bottom))";
+  const orderedPresets = [...PRESETS].reverse();
 
   return (
     <>
@@ -141,26 +177,37 @@ export function RestTimer() {
         <button
           type="button"
           aria-label="Close timer options"
-          onClick={() => setPickerOpen(false)}
+          onClick={closePicker}
           className="fixed inset-0 z-40"
         />
       )}
 
-      <div className="fixed right-5 z-40 flex flex-col items-center gap-2" style={{ bottom: fabBottom }}>
-        {pickerOpen &&
-          [...PRESETS].reverse().map((preset, index) => (
-            <button
-              key={preset.seconds}
-              type="button"
-              onClick={() => start(preset.seconds)}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-foreground text-[13px] font-medium tabular-nums text-background shadow-lg transition-transform duration-200 active:scale-95"
-              style={{
-                animation: `rest-timer-pop 180ms ease-out ${index * 35}ms both`,
-              }}
-            >
-              {preset.label}
-            </button>
-          ))}
+      <div
+        className="fixed right-5 z-40 flex flex-col items-end gap-2.5"
+        style={{ bottom: fabBottom }}
+      >
+        {showPresets &&
+          orderedPresets.map((preset, index) => {
+            const fromBottom = index;
+            const fromTop = orderedPresets.length - 1 - index;
+            return (
+              <button
+                key={preset.seconds}
+                type="button"
+                onClick={() => start(preset.seconds)}
+                className={`rest-timer-pill flex h-10 min-w-[52px] items-center justify-center rounded-full bg-background px-3.5 text-[13px] font-medium tabular-nums text-foreground shadow-[0_2px_10px_rgba(0,0,0,0.08)] active:scale-[0.97] ${
+                  leaving ? "rest-timer-pill-out" : "rest-timer-pill-in"
+                }`}
+                style={{
+                  animationDelay: leaving
+                    ? `${fromTop * 30}ms`
+                    : `${fromBottom * 45}ms`,
+                }}
+              >
+                {preset.label}
+              </button>
+            );
+          })}
 
         <button
           type="button"
@@ -172,12 +219,10 @@ export function RestTimer() {
                 ? "Close rest timer"
                 : "Start rest timer"
           }
-          className={`flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-transform duration-200 active:scale-95 ${
+          className={`flex h-12 w-12 items-center justify-center rounded-full shadow-[0_2px_12px_rgba(0,0,0,0.1)] transition-[transform,background-color,color] duration-200 active:scale-95 ${
             running || justFinished
               ? "bg-foreground text-background"
-              : pickerOpen
-                ? "bg-secondary text-foreground"
-                : "bg-foreground text-background"
+              : "bg-background text-foreground"
           }`}
         >
           {running || justFinished ? (
@@ -185,7 +230,7 @@ export function RestTimer() {
               {justFinished ? "0:00" : formatRemaining(remaining)}
             </span>
           ) : (
-            <ClockIcon />
+            <StopwatchIcon />
           )}
         </button>
       </div>

@@ -63,13 +63,33 @@ textarea {
   background: #e5e5ea;
 }
 
-@keyframes rest-timer-pop {
+@keyframes rest-timer-pill-in {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.92);
+    transform: translateY(10px) scale(0.94);
   }
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+@keyframes rest-timer-pill-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.94);
+  }
+}
+
+.rest-timer-pill-in {
+  animation: rest-timer-pill-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.rest-timer-pill-out {
+  animation: rest-timer-pill-out 180ms cubic-bezier(0.4, 0, 1, 1) both;
+  pointer-events: none;
 }
