@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { BugReportButton } from "@/components/BugReportButton";
+import { RestTimer } from "@/components/RestTimer";
 import { Providers } from "@/components/Providers";
 import "./globals.css";
 
@@ -47,6 +48,7 @@ export default function RootLayout({
           <Providers>
             {children}
           </Providers>
+          <RestTimer />
           <BugReportButton />
         </main>
       </body>
