@@ -231,8 +231,8 @@ export function RestTimer() {
     void unlockAudio();
   }
 
-  // Sit above the larger bug FAB with a comfortable gap.
-  const fabBottom = "calc(1.25rem + 4.5rem + env(safe-area-inset-bottom))";
+  // Bottom-left, matching the bug button's vertical inset on the right.
+  const fabBottom = "calc(1.25rem + env(safe-area-inset-bottom))";
   const orderedPresets = [...PRESETS].reverse();
 
   return (
@@ -247,7 +247,7 @@ export function RestTimer() {
       )}
 
       <div
-        className="fixed right-5 z-40 flex flex-col items-end gap-2.5"
+        className="fixed left-5 z-40 flex flex-col items-start gap-2.5"
         style={{ bottom: fabBottom }}
       >
         {showPresets &&
@@ -274,17 +274,6 @@ export function RestTimer() {
           })}
 
         <div className="flex items-center gap-2">
-          {(running || justFinished) && (
-            <button
-              type="button"
-              onClick={cancelTimer}
-              aria-label="Cancel rest timer"
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-background text-foreground shadow-[0_2px_12px_rgba(0,0,0,0.1)] transition-transform duration-200 active:scale-95"
-            >
-              <CloseIcon />
-            </button>
-          )}
-
           <button
             type="button"
             onClick={handleMainClick}
@@ -295,11 +284,7 @@ export function RestTimer() {
                   ? "Close rest timer"
                   : "Start rest timer"
             }
-            className={`flex ${FAB_SIZE} items-center justify-center rounded-full shadow-[0_2px_12px_rgba(0,0,0,0.1)] transition-[transform,background-color,color] duration-200 active:scale-95 ${
-              running || justFinished
-                ? "bg-foreground text-background"
-                : "bg-background text-foreground"
-            }`}
+            className={`flex ${FAB_SIZE} items-center justify-center rounded-full bg-background text-foreground shadow-[0_2px_12px_rgba(0,0,0,0.1)] transition-transform duration-200 active:scale-95`}
           >
             {running || justFinished ? (
               <span className="text-[15px] font-medium tabular-nums">
@@ -309,6 +294,17 @@ export function RestTimer() {
               <StopwatchIcon />
             )}
           </button>
+
+          {(running || justFinished) && (
+            <button
+              type="button"
+              onClick={cancelTimer}
+              aria-label="Cancel rest timer"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-background text-foreground shadow-[0_2px_12px_rgba(0,0,0,0.1)] transition-transform duration-200 active:scale-95"
+            >
+              <CloseIcon />
+            </button>
+          )}
         </div>
       </div>
     </>
