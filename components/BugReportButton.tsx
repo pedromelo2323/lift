@@ -43,14 +43,20 @@ function formatWhen(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+const DISMISS_DISTANCE = 110;
+
 export function BugReportButton() {
   const [open, setOpen] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [dragY, setDragY] = useState(0);
   const [body, setBody] = useState("");
   const [kind, setKind] = useState<BugKind>("bug");
   const [reports, setReports] = useState<BugReport[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const startY = useRef(0);
+  const dragging = useRef(false);
 
   useEffect(() => {
     if (!open) return;
@@ -60,6 +66,37 @@ export function BugReportButton() {
       .then(setReports)
       .finally(() => setLoading(false));
   }, [open]);
+
+  function closeSheet() {
+    setLeaving(true);
+    setDragY(0);
+    window.setTimeout(() => {
+      setOpen(false);
+      setLeaving(false);
+    }, 200);
+  }
+
+  function onHandlePointerDown(e: React.PointerEvent) {
+    dragging.current = true;
+    startY.current = e.clientY;
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function onHandlePointerMove(e: React.PointerEvent) {
+    if (!dragging.current) return;
+    const dy = Math.max(0, e.clientY - startY.current);
+    setDragY(dy);
+  }
+
+  function onHandlePointerUp() {
+    if (!dragging.current) return;
+    dragging.current = false;
+    if (dragY > DISMISS_DISTANCE) {
+      closeSheet();
+      return;
+    }
+    setDragY(0);
+  }
 
   async function submit() {
     const text = body.trim();
@@ -90,7 +127,11 @@ export function BugReportButton() {
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setDragY(0);
+          setLeaving(false);
+          setOpen(true);
+        }}
         aria-label="Report a bug or idea"
         className="fixed right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-foreground text-background shadow-lg transition-transform duration-200 active:scale-95"
         style={{ bottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}
@@ -103,18 +144,33 @@ export function BugReportButton() {
           <button
             type="button"
             aria-label="Close"
-            onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-foreground/20 backdrop-blur-[2px]"
+            onClick={closeSheet}
+            className="absolute inset-0 bg-foreground/20 backdrop-blur-[2px] transition-opacity duration-200"
+            style={{ opacity: leaving || dragY > 0 ? Math.max(0.15, 1 - dragY / 280) : 1 }}
           />
           <div
-            className="relative max-h-[85vh] overflow-y-auto rounded-t-3xl bg-background px-5 pt-5"
-            style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom))" }}
+            className="relative max-h-[85vh] overflow-y-auto rounded-t-3xl bg-background px-5"
+            style={{
+              paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom))",
+              transform: leaving ? "translateY(100%)" : `translateY(${dragY}px)`,
+              transition: dragging.current ? "none" : "transform 200ms ease-out",
+            }}
           >
+            <div
+              className="flex cursor-grab touch-none flex-col items-center pb-2 pt-3 active:cursor-grabbing"
+              onPointerDown={onHandlePointerDown}
+              onPointerMove={onHandlePointerMove}
+              onPointerUp={onHandlePointerUp}
+              onPointerCancel={onHandlePointerUp}
+            >
+              <div className="h-1 w-10 rounded-full bg-border" />
+            </div>
+
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-base font-semibold tracking-tight">Notes & bugs</h2>
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={closeSheet}
                 className="text-sm text-muted-foreground"
               >
                 Done

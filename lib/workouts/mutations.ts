@@ -91,14 +91,22 @@ function parseLooseSets(raw: unknown): SetEntry[] {
 export async function upsertExerciseSession(
   exerciseId: string,
   sets: SetEntry[],
-  options?: { keepalive?: boolean },
+  options?: { keepalive?: boolean; sessionDate?: string; note?: string | null },
 ) {
-  const sessionDate = getTodayDateString();
-  const payload = {
+  const sessionDate = options?.sessionDate ?? getTodayDateString();
+  const payload: {
+    exercise_id: string;
+    session_date: string;
+    sets: SetEntry[];
+    note?: string | null;
+  } = {
     exercise_id: exerciseId,
     session_date: sessionDate,
     sets,
   };
+  if (options && "note" in options) {
+    payload.note = options.note ?? null;
+  }
 
   // iOS kills pending XHR when the PWA is backgrounded; keepalive can finish the write.
   if (options?.keepalive) {
@@ -129,6 +137,15 @@ export async function upsertExerciseSession(
   const { error } = await supabase().from("exercise_sessions").upsert(payload, {
     onConflict: "exercise_id,session_date",
   });
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteExerciseSession(exerciseId: string, sessionDate: string) {
+  const { error } = await supabase()
+    .from("exercise_sessions")
+    .delete()
+    .eq("exercise_id", exerciseId)
+    .eq("session_date", sessionDate);
   if (error) throw new Error(error.message);
 }
 
