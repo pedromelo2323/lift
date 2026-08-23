@@ -103,8 +103,9 @@ export function EditableCell({
           inputMode="decimal"
           onChange={(e) => setWeightStr(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && commit({ allowEmptyOverwrite: true })}
-          aria-label="Weight"
-          className="w-8 bg-transparent text-right text-[15px] tabular-nums outline-none"
+          placeholder="kg"
+          aria-label="Weight in kg"
+          className="w-8 bg-transparent text-right text-[15px] tabular-nums outline-none placeholder:text-muted-foreground/40"
         />
         <span className="text-muted-foreground">×</span>
         <input
@@ -112,8 +113,9 @@ export function EditableCell({
           inputMode="numeric"
           onChange={(e) => setRepsStr(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && commit({ allowEmptyOverwrite: true })}
+          placeholder="reps"
           aria-label="Reps"
-          className="w-7 bg-transparent text-left text-[15px] tabular-nums outline-none"
+          className="w-9 bg-transparent text-left text-[15px] tabular-nums outline-none placeholder:text-muted-foreground/40"
         />
       </div>
     );

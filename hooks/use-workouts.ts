@@ -1,5 +1,12 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchWorkoutDetail, fetchWorkouts, workoutKey, workoutsKey } from "@/lib/api/workouts";
+import {
+  exerciseHistoryKey,
+  fetchExerciseHistory,
+  fetchWorkoutDetail,
+  fetchWorkouts,
+  workoutKey,
+  workoutsKey,
+} from "@/lib/api/workouts";
 import type { WorkoutDetail } from "@/types";
 
 export function useWorkouts() {
@@ -15,6 +22,14 @@ export function useWorkoutDetail(workoutId: string) {
     queryFn: () => fetchWorkoutDetail(workoutId),
     enabled: Boolean(workoutId),
     placeholderData: (previous) => previous,
+  });
+}
+
+export function useExerciseHistory(exerciseId: string) {
+  return useQuery({
+    queryKey: exerciseHistoryKey(exerciseId),
+    queryFn: () => fetchExerciseHistory(exerciseId),
+    enabled: Boolean(exerciseId),
   });
 }
 

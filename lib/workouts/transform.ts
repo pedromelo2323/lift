@@ -32,6 +32,7 @@ export function emptyTodaySessions(exerciseId: string, today: string) {
         { weight: null, reps: null },
         { weight: null, reps: null },
       ],
+      note: null as string | null,
       created_at: new Date().toISOString(),
     },
   ];

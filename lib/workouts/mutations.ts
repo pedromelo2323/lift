@@ -17,20 +17,75 @@ export async function updateExerciseName(exerciseId: string, name: string) {
   if (error) throw new Error(error.message);
 }
 
-export async function updateExerciseNote(exerciseId: string, note: string) {
+export async function updateExerciseNote(
+  exerciseId: string,
+  note: string,
+  currentSets?: SetEntry[],
+) {
+  const sessionDate = getTodayDateString();
   const trimmed = note.trim();
-  if (!trimmed) {
-    const { error } = await supabase().from("exercise_notes").delete().eq("exercise_id", exerciseId);
-    if (error) throw new Error(error.message);
-    return;
-  }
+  const client = supabase();
 
-  const { error } = await supabase().from("exercise_notes").upsert({
-    exercise_id: exerciseId,
-    note: trimmed,
-    updated_at: new Date().toISOString(),
+  const { data: existing } = await client
+    .from("exercise_sessions")
+    .select("sets")
+    .eq("exercise_id", exerciseId)
+    .eq("session_date", sessionDate)
+    .maybeSingle();
+
+  const fallbackSets: SetEntry[] = [
+    { weight: null, reps: null },
+    { weight: null, reps: null },
+    { weight: null, reps: null },
+  ];
+
+  const sets = currentSets ?? (existing?.sets ? parseLooseSets(existing.sets) : fallbackSets);
+
+  const { error } = await client.from("exercise_sessions").upsert(
+    {
+      exercise_id: exerciseId,
+      session_date: sessionDate,
+      sets,
+      note: trimmed || null,
+    },
+    { onConflict: "exercise_id,session_date" },
+  );
+
+  if (error) {
+    // Column may not exist yet — fall back to legacy exercise_notes.
+    if (!trimmed) {
+      const { error: delError } = await client
+        .from("exercise_notes")
+        .delete()
+        .eq("exercise_id", exerciseId);
+      if (delError) throw new Error(delError.message);
+      return;
+    }
+    const { error: legacyError } = await client.from("exercise_notes").upsert({
+      exercise_id: exerciseId,
+      note: trimmed,
+      updated_at: new Date().toISOString(),
+    });
+    if (legacyError) throw new Error(error.message);
+  }
+}
+
+function parseLooseSets(raw: unknown): SetEntry[] {
+  if (!Array.isArray(raw)) {
+    return [
+      { weight: null, reps: null },
+      { weight: null, reps: null },
+      { weight: null, reps: null },
+    ];
+  }
+  return raw.map((entry) => {
+    if (typeof entry !== "object" || entry === null) return { weight: null, reps: null };
+    const item = entry as { weight?: unknown; reps?: unknown };
+    return {
+      weight: typeof item.weight === "number" ? item.weight : null,
+      reps: typeof item.reps === "number" ? item.reps : null,
+    };
   });
-  if (error) throw new Error(error.message);
 }
 
 export async function upsertExerciseSession(

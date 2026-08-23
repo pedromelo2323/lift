@@ -28,6 +28,7 @@ export type ExerciseSession = {
   exercise_id: string;
   session_date: string;
   sets: SetEntry[];
+  note: string | null;
   created_at: string;
 };
 

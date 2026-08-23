@@ -71,6 +71,7 @@ export type Database = {
           exercise_id: string;
           session_date: string;
           sets: Json;
+          note: string | null;
           created_at: string;
         };
         Insert: {
@@ -78,6 +79,7 @@ export type Database = {
           exercise_id: string;
           session_date: string;
           sets?: Json;
+          note?: string | null;
           created_at?: string;
         };
         Update: {
@@ -85,6 +87,7 @@ export type Database = {
           exercise_id?: string;
           session_date?: string;
           sets?: Json;
+          note?: string | null;
           created_at?: string;
         };
         Relationships: [

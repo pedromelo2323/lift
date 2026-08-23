@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ExerciseSession, ExerciseWithData, SetEntry, WorkoutDetail } from "@/types";
 import { formatSessionDate, getTodayDateString } from "@/lib/utils/date";
+import { isBetter, stalledSetIndexes } from "@/lib/utils/progress";
 import { upsertExerciseSession, updateExerciseNote } from "@/lib/workouts/mutations";
 import {
   clearSessionDraft,
@@ -25,7 +27,7 @@ function isSuggested(set: SetEntry, latest: SetEntry | undefined): boolean {
 
 function buildInitialRows(exercise: ExerciseWithData, today: string): ExerciseSession[] {
   const todaySession = exercise.sessions.find((s) => s.session_date === today);
-  const historySessions = exercise.sessions.filter((s) => s.session_date !== today).slice(0, 3);
+  const historySessions = exercise.sessions.filter((s) => s.session_date !== today);
   const rows = [...historySessions];
   const draft = readSessionDraft(exercise.id, today);
 
@@ -35,6 +37,7 @@ function buildInitialRows(exercise: ExerciseWithData, today: string): ExerciseSe
       exercise_id: exercise.id,
       session_date: today,
       sets: draft.sets,
+      note: todaySession?.note ?? exercise.note,
       created_at: todaySession?.created_at ?? new Date().toISOString(),
     });
     return rows;
@@ -43,7 +46,7 @@ function buildInitialRows(exercise: ExerciseWithData, today: string): ExerciseSe
   if (todaySession) {
     rows.push(todaySession);
   } else {
-    const latest = historySessions[0];
+    const latest = historySessions[historySessions.length - 1];
     rows.push({
       id: `local-${exercise.id}`,
       exercise_id: exercise.id,
@@ -55,20 +58,75 @@ function buildInitialRows(exercise: ExerciseWithData, today: string): ExerciseSe
             { weight: null, reps: null },
             { weight: null, reps: null },
           ],
+      note: null,
       created_at: new Date().toISOString(),
     });
   }
   return rows;
 }
 
+function ArrowUpIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+      className="pointer-events-none absolute -right-0.5 top-1 text-foreground/40"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 19V5" />
+      <path d="M5 12l7-7 7 7" />
+    </svg>
+  );
+}
+
+function HistoryArrowIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M7 17L17 7" />
+      <path d="M8 7h9v9" />
+    </svg>
+  );
+}
+
 export function SessionTable({ exercise }: SessionTableProps) {
   const today = getTodayDateString();
   const queryClient = useQueryClient();
-  const historySessions = useMemo(
-    () => exercise.sessions.filter((s) => s.session_date !== today).slice(0, 3),
+
+  // Past sessions newest-first for progress / stall logic
+  const historyNewestFirst = useMemo(
+    () =>
+      [...exercise.sessions.filter((s) => s.session_date !== today)].sort((a, b) =>
+        a.session_date < b.session_date ? 1 : a.session_date > b.session_date ? -1 : 0,
+      ),
     [exercise.sessions, today],
   );
-  const latestHistory = historySessions[0];
+  const latestHistory = historyNewestFirst[0];
+  const stalled = useMemo(
+    () => stalledSetIndexes(historyNewestFirst),
+    [historyNewestFirst],
+  );
+  const previousNote = useMemo(() => {
+    const withNote = historyNewestFirst.find((s) => s.note?.trim());
+    return withNote?.note?.trim()
+      ? { date: withNote.session_date, body: withNote.note.trim() }
+      : null;
+  }, [historyNewestFirst]);
 
   const [rows, setRows] = useState(() => buildInitialRows(exercise, today));
   const [note, setNote] = useState(exercise.note ?? "");
@@ -88,6 +146,7 @@ export function SessionTable({ exercise }: SessionTableProps) {
           const existingToday = item.sessions.find((session) => session.session_date === today);
           return {
             ...item,
+            note: existingToday?.note ?? item.note,
             sessions: [
               ...withoutToday,
               {
@@ -95,6 +154,7 @@ export function SessionTable({ exercise }: SessionTableProps) {
                 exercise_id: exercise.id,
                 session_date: today,
                 sets,
+                note: existingToday?.note ?? item.note,
                 created_at: existingToday?.created_at ?? new Date().toISOString(),
               },
             ],
@@ -117,7 +177,26 @@ export function SessionTable({ exercise }: SessionTableProps) {
   }, 350);
 
   const saveNote = useDebouncedCallback((nextNote: string) => {
-    void updateExerciseNote(exercise.id, nextNote);
+    const todayRow = rowsRef.current.find((row) => row.session_date === today);
+    void updateExerciseNote(exercise.id, nextNote, todayRow?.sets).then(() => {
+      queryClient.setQueryData<WorkoutDetail>(workoutKey(exercise.workout_id), (current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          exercises: current.exercises.map((item) => {
+            if (item.id !== exercise.id) return item;
+            const trimmed = nextNote.trim() || null;
+            return {
+              ...item,
+              note: trimmed,
+              sessions: item.sessions.map((session) =>
+                session.session_date === today ? { ...session, note: trimmed } : session,
+              ),
+            };
+          }),
+        };
+      });
+    });
   }, 400);
 
   useEffect(() => {
@@ -157,6 +236,8 @@ export function SessionTable({ exercise }: SessionTableProps) {
     });
   }
 
+  const setCount = 3;
+
   return (
     <div className="pb-5 pl-1 pr-1">
       <table className="w-full border-separate border-spacing-0">
@@ -165,12 +246,15 @@ export function SessionTable({ exercise }: SessionTableProps) {
             <th className="w-16 pb-2 text-left text-[11px] font-normal uppercase tracking-wider text-muted-foreground">
               Date
             </th>
-            {[1, 2, 3].map((setNumber) => (
+            {Array.from({ length: setCount }, (_, i) => (
               <th
-                key={setNumber}
+                key={i}
                 className="pb-2 text-center text-[11px] font-normal uppercase tracking-wider text-muted-foreground"
               >
-                Set {setNumber}
+                <span className="block">Set {i + 1}</span>
+                <span className="block text-[10px] normal-case tracking-normal text-muted-foreground/50">
+                  kg × reps
+                </span>
               </th>
             ))}
           </tr>
@@ -187,34 +271,51 @@ export function SessionTable({ exercise }: SessionTableProps) {
                 >
                   {formatSessionDate(row.session_date, isToday)}
                 </td>
-                {row.sets.slice(0, 3).map((set, setIndex) => (
-                  <td key={setIndex} className="border-t border-border">
-                    <EditableCell
-                      weight={set.weight}
-                      reps={set.reps}
-                      editable={isToday}
-                      suggested={
-                        isToday &&
-                        isSuggested(set, latestHistory?.sets[setIndex]) &&
-                        set.weight != null
-                      }
-                      onChange={(nextWeight, nextReps) =>
-                        updateSet(rowIndex, setIndex, nextWeight, nextReps)
-                      }
-                    />
-                  </td>
-                ))}
+                {row.sets.slice(0, setCount).map((set, setIndex) => {
+                  const suggested =
+                    isToday &&
+                    isSuggested(set, latestHistory?.sets[setIndex]) &&
+                    set.weight != null;
+                  const improved =
+                    isToday && !suggested && isBetter(set, latestHistory?.sets[setIndex]);
+                  return (
+                    <td key={setIndex} className="border-t border-border">
+                      <div className="relative">
+                        <EditableCell
+                          weight={set.weight}
+                          reps={set.reps}
+                          editable={isToday}
+                          suggested={suggested}
+                          onChange={(nextWeight, nextReps) =>
+                            updateSet(rowIndex, setIndex, nextWeight, nextReps)
+                          }
+                        />
+                        {improved ? <ArrowUpIcon /> : null}
+                      </div>
+                    </td>
+                  );
+                })}
               </tr>
             );
           })}
         </tbody>
       </table>
 
+      {stalled.length > 0 ? (
+        <p className="mt-3 text-[12px] leading-relaxed text-muted-foreground/70">
+          {stalled.length === setCount
+            ? "Same numbers for 3 sessions — maybe time to change something."
+            : `Set ${stalled.map((i) => i + 1).join(", ")} hasn't moved in 3 sessions.`}
+        </p>
+      ) : null}
+
       {editingNote ? (
         <input
           autoFocus
           value={note}
-          placeholder="Note"
+          placeholder={
+            previousNote ? `Last time: ${previousNote.body}` : "Note for today"
+          }
           onChange={(e) => setNote(e.target.value)}
           onBlur={() => {
             setEditingNote(false);
@@ -235,6 +336,22 @@ export function SessionTable({ exercise }: SessionTableProps) {
           {note ? note : <span className="text-muted-foreground/40">Add a note</span>}
         </button>
       )}
+
+      {previousNote && previousNote.body !== note.trim() ? (
+        <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground/45">
+          {formatSessionDate(previousNote.date)}: {previousNote.body}
+        </p>
+      ) : null}
+
+      <div className="mt-3 flex justify-end">
+        <Link
+          href={`/exercise/${exercise.id}`}
+          aria-label="All sessions for this exercise"
+          className="-mr-1 p-1 text-muted-foreground/40"
+        >
+          <HistoryArrowIcon />
+        </Link>
+      </div>
     </div>
   );
 }
