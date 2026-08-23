@@ -135,13 +135,6 @@ export function SessionTable({ exercise }: SessionTableProps) {
     () => stalledSetIndexes(historyNewestFirst),
     [historyNewestFirst],
   );
-  const previousNote = useMemo(() => {
-    const withNote = historyNewestFirst.find((s) => s.note?.trim());
-    return withNote?.note?.trim()
-      ? { date: withNote.session_date, body: withNote.note.trim() }
-      : null;
-  }, [historyNewestFirst]);
-
   const [rows, setRows] = useState(() => buildInitialRows(exercise, today));
   const [note, setNote] = useState(exercise.note ?? "");
   const [editingNote, setEditingNote] = useState(false);
@@ -328,7 +321,7 @@ export function SessionTable({ exercise }: SessionTableProps) {
     : "";
 
   return (
-    <div className="pb-5 pl-1 pr-1">
+    <div className="pb-3 pl-1 pr-1">
       <div className="flex items-end pb-2">
         <div className="w-16 shrink-0 text-left text-[11px] font-normal uppercase tracking-wider text-muted-foreground">
           Date
@@ -413,45 +406,36 @@ export function SessionTable({ exercise }: SessionTableProps) {
         </p>
       ) : null}
 
-      {editingNote ? (
-        <input
-          autoFocus
-          value={note}
-          placeholder={
-            previousNote ? `Last time: ${previousNote.body}` : "Note for today"
-          }
-          onChange={(e) => setNote(e.target.value)}
-          onBlur={() => {
-            setEditingNote(false);
-            saveNote(note.trim());
-          }}
-          onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-          className="mt-4 w-full bg-transparent text-[13px] leading-relaxed text-muted-foreground outline-none"
-        />
-      ) : (
-        <button
-          type="button"
-          onClick={() => {
-            setNote(exercise.note ?? "");
-            setEditingNote(true);
-          }}
-          className="mt-4 block w-full text-left text-[13px] leading-relaxed text-muted-foreground"
-        >
-          {note ? note : <span className="text-muted-foreground/40">Add a note</span>}
-        </button>
-      )}
-
-      {previousNote && previousNote.body !== note.trim() ? (
-        <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground/45">
-          {formatSessionDate(previousNote.date)}: {previousNote.body}
-        </p>
-      ) : null}
-
-      <div className="mt-3 flex justify-end">
+      <div className="mt-3 flex items-start gap-2">
+        {editingNote ? (
+          <input
+            autoFocus
+            value={note}
+            placeholder="Note"
+            onChange={(e) => setNote(e.target.value)}
+            onBlur={() => {
+              setEditingNote(false);
+              saveNote(note.trim());
+            }}
+            onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+            className="min-w-0 flex-1 bg-transparent text-[13px] leading-relaxed text-muted-foreground outline-none"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setNote(exercise.note ?? "");
+              setEditingNote(true);
+            }}
+            className="min-w-0 flex-1 text-left text-[13px] leading-relaxed text-muted-foreground"
+          >
+            {note ? note : <span className="text-muted-foreground/40">Add a note</span>}
+          </button>
+        )}
         <Link
           href={`/exercise/${exercise.id}`}
           aria-label="All sessions for this exercise"
-          className="-mr-1 p-1 text-muted-foreground/40"
+          className="-mr-1 shrink-0 p-1 text-muted-foreground/40"
         >
           <HistoryArrowIcon />
         </Link>
