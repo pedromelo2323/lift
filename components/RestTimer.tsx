@@ -8,6 +8,7 @@ const PRESETS = [
   { label: "2:00", seconds: 120 },
   { label: "3:00", seconds: 180 },
 ] as const;
+const CUSTOM_TIMER_KEY = "lift:rest-timer-custom-seconds";
 
 /** Comfortable thumb target (~56px). */
 const FAB_SIZE = "h-14 w-14";
@@ -16,6 +17,12 @@ function formatRemaining(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function readCustomDuration(): number | null {
+  if (typeof window === "undefined") return null;
+  const value = Number(window.localStorage.getItem(CUSTOM_TIMER_KEY));
+  return Number.isInteger(value) && value >= 5 && value <= 3599 ? value : null;
 }
 
 let sharedAudioCtx: AudioContext | null = null;
@@ -128,6 +135,10 @@ function CloseIcon() {
 
 export function RestTimer() {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customDuration, setCustomDuration] = useState(readCustomDuration);
+  const [customMinutes, setCustomMinutes] = useState("2");
+  const [customSeconds, setCustomSeconds] = useState("30");
   const [leaving, setLeaving] = useState(false);
   const [endAt, setEndAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -135,6 +146,8 @@ export function RestTimer() {
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const finishedForRef = useRef<number | null>(null);
   const leaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suppressClickRef = useRef(false);
   const pickerOpenRef = useRef(false);
 
   const remaining = endAt == null ? 0 : Math.max(0, Math.ceil((endAt - now) / 1000));
@@ -203,6 +216,7 @@ export function RestTimer() {
   useEffect(
     () => () => {
       if (leaveTimeoutRef.current) clearTimeout(leaveTimeoutRef.current);
+      if (longPressTimeoutRef.current) clearTimeout(longPressTimeoutRef.current);
     },
     [],
   );
@@ -213,11 +227,55 @@ export function RestTimer() {
     setJustFinished(false);
     setEndAt(Date.now() + seconds * 1000);
     setNow(Date.now());
+    setCustomOpen(false);
     closePicker();
   }
 
-  function handleMainClick() {
+  function openCustomPicker() {
+    const duration = customDuration ?? 150;
+    setCustomMinutes(String(Math.floor(duration / 60)));
+    setCustomSeconds(String(duration % 60));
+    closePicker();
+    setLeaving(false);
+    setCustomOpen(true);
+  }
+
+  function startCustom() {
+    const minutes = Number(customMinutes) || 0;
+    const seconds = Number(customSeconds) || 0;
+    const total = Math.min(3599, Math.max(5, Math.floor(minutes * 60 + seconds)));
+    window.localStorage.setItem(CUSTOM_TIMER_KEY, String(total));
+    setCustomDuration(total);
+    start(total);
+  }
+
+  function beginLongPress() {
     if (running || justFinished) return;
+    suppressClickRef.current = false;
+    if (longPressTimeoutRef.current) clearTimeout(longPressTimeoutRef.current);
+    longPressTimeoutRef.current = setTimeout(() => {
+      suppressClickRef.current = true;
+      openCustomPicker();
+      try {
+        navigator.vibrate?.(12);
+      } catch {
+        // Optional feedback.
+      }
+    }, 550);
+  }
+
+  function endLongPress() {
+    if (longPressTimeoutRef.current) clearTimeout(longPressTimeoutRef.current);
+    longPressTimeoutRef.current = null;
+  }
+
+  function handleMainClick() {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
+    if (running || justFinished) return;
+    setCustomOpen(false);
     if (pickerOpen) {
       closePicker();
       return;
@@ -233,15 +291,22 @@ export function RestTimer() {
 
   // Bottom-left, matching the bug button's vertical inset on the right.
   const fabBottom = "calc(1.25rem + env(safe-area-inset-bottom))";
-  const orderedPresets = [...PRESETS].reverse();
+  const timerOptions =
+    customDuration && !PRESETS.some((preset) => preset.seconds === customDuration)
+      ? [...PRESETS, { label: formatRemaining(customDuration), seconds: customDuration }]
+      : [...PRESETS];
+  const orderedPresets = timerOptions.reverse();
 
   return (
     <>
-      {pickerOpen && (
+      {(pickerOpen || customOpen) && (
         <button
           type="button"
           aria-label="Close timer options"
-          onClick={closePicker}
+          onClick={() => {
+            closePicker();
+            setCustomOpen(false);
+          }}
           className="fixed inset-0 z-40"
         />
       )}
@@ -273,10 +338,48 @@ export function RestTimer() {
             );
           })}
 
+        {customOpen ? (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              startCustom();
+            }}
+            className="rest-timer-pill-in flex items-center gap-1.5 rounded-2xl bg-background p-2 pl-3 text-[14px] shadow-[0_2px_12px_rgba(0,0,0,0.1)]"
+          >
+            <input
+              autoFocus
+              value={customMinutes}
+              onChange={(event) => setCustomMinutes(event.target.value)}
+              inputMode="numeric"
+              aria-label="Timer minutes"
+              className="w-7 bg-transparent text-right tabular-nums outline-none"
+            />
+            <span className="text-muted-foreground">m</span>
+            <input
+              value={customSeconds}
+              onChange={(event) => setCustomSeconds(event.target.value)}
+              inputMode="numeric"
+              aria-label="Timer seconds"
+              className="w-7 bg-transparent text-right tabular-nums outline-none"
+            />
+            <span className="text-muted-foreground">s</span>
+            <button
+              type="submit"
+              className="ml-1 rounded-full bg-foreground px-3 py-1.5 text-[13px] font-medium text-background active:opacity-75"
+            >
+              Start
+            </button>
+          </form>
+        ) : null}
+
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={handleMainClick}
+            onPointerDown={beginLongPress}
+            onPointerUp={endLongPress}
+            onPointerCancel={endLongPress}
+            onPointerLeave={endLongPress}
             aria-label={
               running
                 ? `Rest timer ${formatRemaining(remaining)}`

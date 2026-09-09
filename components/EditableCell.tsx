@@ -26,9 +26,11 @@ export function EditableCell({
   onChange,
 }: EditableCellProps) {
   const [editing, setEditing] = useState(false);
+  const [justCommitted, setJustCommitted] = useState(false);
   const [weightStr, setWeightStr] = useState("");
   const [repsStr, setRepsStr] = useState("");
   const weightRef = useRef<HTMLInputElement>(null);
+  const pulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editingRef = useRef(false);
   const valuesRef = useRef({ weight, reps, weightStr, repsStr, onChange });
 
@@ -56,6 +58,9 @@ export function EditableCell({
     }
 
     if (nextWeight !== current.weight || nextReps !== current.reps) {
+      setJustCommitted(true);
+      if (pulseTimeoutRef.current) clearTimeout(pulseTimeoutRef.current);
+      pulseTimeoutRef.current = setTimeout(() => setJustCommitted(false), 650);
       current.onChange(nextWeight, nextReps);
     }
   }, []);
@@ -79,6 +84,13 @@ export function EditableCell({
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [commit]);
+
+  useEffect(
+    () => () => {
+      if (pulseTimeoutRef.current) clearTimeout(pulseTimeoutRef.current);
+    },
+    [],
+  );
 
   function start() {
     if (!editable) return;
@@ -128,7 +140,9 @@ export function EditableCell({
       disabled={!editable}
       className={`w-full rounded-md py-1.5 text-center text-[15px] tabular-nums transition-colors duration-200 ${
         editable ? "active:bg-secondary" : "cursor-default"
-      } ${suggested ? "text-muted-foreground/60" : "text-foreground"}`}
+      } ${suggested ? "text-muted-foreground/60" : "text-foreground"} ${
+        justCommitted ? "cell-saved" : ""
+      }`}
     >
       {display}
     </button>

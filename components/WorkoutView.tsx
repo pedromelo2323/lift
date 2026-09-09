@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { WorkoutDetail } from "@/types";
 import { ExerciseList } from "@/components/ExerciseList";
+import { SaveStatusProvider } from "@/components/SaveStatus";
 import { WorkoutHeader } from "@/components/WorkoutHeader";
 
 type WorkoutViewProps = {
@@ -13,20 +14,22 @@ export function WorkoutView({ workout }: WorkoutViewProps) {
   const [isEditing, setIsEditing] = useState(false);
 
   return (
-    <div className="px-6 pb-20 pt-10">
-      <WorkoutHeader
-        workoutId={workout.id}
-        name={workout.name}
-        isEditing={isEditing}
-        onToggleEdit={() => setIsEditing((current) => !current)}
-      />
-      <div className="mt-6">
-        <ExerciseList
+    <SaveStatusProvider>
+      <div className="px-6 pb-20 pt-10">
+        <WorkoutHeader
           workoutId={workout.id}
-          exercises={workout.exercises}
+          name={workout.name}
           isEditing={isEditing}
+          onToggleEdit={() => setIsEditing((current) => !current)}
         />
+        <div className="mt-6">
+          <ExerciseList
+            workoutId={workout.id}
+            exercises={workout.exercises}
+            isEditing={isEditing}
+          />
+        </div>
       </div>
-    </div>
+    </SaveStatusProvider>
   );
 }

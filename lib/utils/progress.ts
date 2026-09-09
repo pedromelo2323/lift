@@ -8,6 +8,12 @@ export function isBetter(a: SetEntry, b: SetEntry | undefined): boolean {
   return false;
 }
 
+export function isPersonalRecord(a: SetEntry, best: SetEntry | null): boolean {
+  if (a.weight == null || a.reps == null) return false;
+  if (!best || best.weight == null || best.reps == null) return true;
+  return isBetter(a, best);
+}
+
 function sameSet(a: SetEntry, b: SetEntry): boolean {
   return a.weight === b.weight && a.reps === b.reps;
 }

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ExerciseSession, ExerciseWithData, SetEntry, WorkoutDetail } from "@/types";
 import { formatSessionDate, getTodayDateString } from "@/lib/utils/date";
-import { isBetter, stalledSetIndexes } from "@/lib/utils/progress";
+import { isBetter, isPersonalRecord, stalledSetIndexes } from "@/lib/utils/progress";
 import {
   deleteExerciseSession,
   upsertExerciseSession,
@@ -18,6 +18,7 @@ import {
 } from "@/lib/workouts/session-draft";
 import { workoutKey } from "@/lib/api/workouts";
 import { EditableCell } from "@/components/EditableCell";
+import { useSaveStatus } from "@/components/SaveStatus";
 import { SwipeDeleteRow } from "@/components/SwipeDeleteRow";
 import { UndoToast } from "@/components/UndoToast";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
@@ -96,6 +97,17 @@ function ArrowUpIcon() {
   );
 }
 
+function PersonalRecordBadge() {
+  return (
+    <span
+      className="pointer-events-none absolute -right-0.5 top-0.5 text-[8px] font-semibold tracking-tight text-foreground/55"
+      aria-label="Personal record"
+    >
+      PR
+    </span>
+  );
+}
+
 function HistoryArrowIcon() {
   return (
     <svg
@@ -122,6 +134,7 @@ function isPersistedSession(session: ExerciseSession) {
 export function SessionTable({ exercise }: SessionTableProps) {
   const today = getTodayDateString();
   const queryClient = useQueryClient();
+  const saveStatus = useSaveStatus();
 
   const historyNewestFirst = useMemo(
     () =>
@@ -172,7 +185,10 @@ export function SessionTable({ exercise }: SessionTableProps) {
       };
     });
 
-    void upsertExerciseSession(exercise.id, sets, keepalive ? { keepalive: true } : undefined)
+    void saveStatus
+      .track(() =>
+        upsertExerciseSession(exercise.id, sets, keepalive ? { keepalive: true } : undefined),
+      )
       .then(() => clearSessionDraft(exercise.id, today))
       .catch(() => {
         // Keep the draft so a reload can restore unsaved numbers.
@@ -187,25 +203,30 @@ export function SessionTable({ exercise }: SessionTableProps) {
 
   const saveNote = useDebouncedCallback((nextNote: string) => {
     const todayRow = rowsRef.current.find((row) => row.session_date === today);
-    void updateExerciseNote(exercise.id, nextNote, todayRow?.sets).then(() => {
-      queryClient.setQueryData<WorkoutDetail>(workoutKey(exercise.workout_id), (current) => {
-        if (!current) return current;
-        return {
-          ...current,
-          exercises: current.exercises.map((item) => {
-            if (item.id !== exercise.id) return item;
-            const trimmed = nextNote.trim() || null;
-            return {
-              ...item,
-              note: trimmed,
-              sessions: item.sessions.map((session) =>
-                session.session_date === today ? { ...session, note: trimmed } : session,
-              ),
-            };
-          }),
-        };
+    void saveStatus
+      .track(() => updateExerciseNote(exercise.id, nextNote, todayRow?.sets))
+      .then(() => {
+        queryClient.setQueryData<WorkoutDetail>(workoutKey(exercise.workout_id), (current) => {
+          if (!current) return current;
+          return {
+            ...current,
+            exercises: current.exercises.map((item) => {
+              if (item.id !== exercise.id) return item;
+              const trimmed = nextNote.trim() || null;
+              return {
+                ...item,
+                note: trimmed,
+                sessions: item.sessions.map((session) =>
+                  session.session_date === today ? { ...session, note: trimmed } : session,
+                ),
+              };
+            }),
+          };
+        });
+      })
+      .catch(() => {
+        // Save status remains visible with Retry.
       });
-    });
   }, 400);
 
   useEffect(() => {
@@ -267,7 +288,11 @@ export function SessionTable({ exercise }: SessionTableProps) {
     patchCacheSessions(nextRows);
 
     const timer = setTimeout(() => {
-      void deleteExerciseSession(exercise.id, session.session_date);
+      void saveStatus
+        .track(() => deleteExerciseSession(exercise.id, session.session_date))
+        .catch(() => {
+          // Save status exposes retry.
+        });
       pendingRef.current = null;
       setPendingDelete(null);
     }, 5000);
@@ -291,13 +316,27 @@ export function SessionTable({ exercise }: SessionTableProps) {
     });
     setRows(restored);
     patchCacheSessions(restored);
-    void upsertExerciseSession(exercise.id, pending.session.sets, {
-      sessionDate: pending.session.session_date,
-      note: pending.session.note,
-    });
+    void saveStatus
+      .track(() =>
+        upsertExerciseSession(exercise.id, pending.session.sets, {
+          sessionDate: pending.session.session_date,
+          note: pending.session.note,
+        }),
+      )
+      .catch(() => {
+        // Save status exposes retry.
+      });
   }
 
   function updateSet(rowIndex: number, setIndex: number, weight: number | null, reps: number | null) {
+    if (isPersonalRecord({ weight, reps }, exercise.all_time_best)) {
+      try {
+        navigator.vibrate?.(18);
+      } catch {
+        // Haptics are optional and unsupported on iOS.
+      }
+    }
+
     setRows((current) => {
       const next = current.map((row, i) => {
         if (i !== rowIndex) return row;
@@ -308,6 +347,7 @@ export function SessionTable({ exercise }: SessionTableProps) {
       const todayRow = next.find((row) => row.session_date === today);
       if (todayRow) {
         writeSessionDraft(exercise.id, today, todayRow.sets);
+        saveStatus.markDirty();
         saveSession(todayRow.sets);
       }
 
@@ -358,6 +398,8 @@ export function SessionTable({ exercise }: SessionTableProps) {
                   set.weight != null;
                 const improved =
                   isToday && !suggested && isBetter(set, latestHistory?.sets[setIndex]);
+                const personalRecord =
+                  isToday && !suggested && isPersonalRecord(set, exercise.all_time_best);
                 return (
                   <div key={setIndex} className="min-w-0 flex-1">
                     <div className="relative">
@@ -370,7 +412,7 @@ export function SessionTable({ exercise }: SessionTableProps) {
                           updateSet(rowIndex, setIndex, nextWeight, nextReps)
                         }
                       />
-                      {improved ? <ArrowUpIcon /> : null}
+                      {personalRecord ? <PersonalRecordBadge /> : improved ? <ArrowUpIcon /> : null}
                     </div>
                   </div>
                 );
@@ -415,6 +457,7 @@ export function SessionTable({ exercise }: SessionTableProps) {
             onChange={(e) => setNote(e.target.value)}
             onBlur={() => {
               setEditingNote(false);
+              saveStatus.markDirty();
               saveNote(note.trim());
             }}
             onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}

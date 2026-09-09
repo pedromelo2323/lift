@@ -177,6 +177,7 @@ export async function addExercise(workoutId: string, name: string): Promise<Exer
     ...data,
     note: null,
     sessions: emptyTodaySessions(data.id, today),
+    all_time_best: null,
   };
 }
 

@@ -13,7 +13,7 @@ type WorkoutPageClientProps = {
 
 export function WorkoutPageClient({ workoutId }: WorkoutPageClientProps) {
   const router = useRouter();
-  const { data: workout, isPending, isError } = useWorkoutDetail(workoutId);
+  const { data: workout, isPending, isError, refetch } = useWorkoutDetail(workoutId);
 
   return (
     <>
@@ -21,13 +21,22 @@ export function WorkoutPageClient({ workoutId }: WorkoutPageClientProps) {
         <div className="px-6 pb-20 pt-10">
           <SetupNotice />
           <p className="mt-10 text-[15px] text-muted-foreground">Couldn&apos;t load this workout.</p>
-          <button
-            type="button"
-            onClick={() => router.push("/")}
-            className="mt-4 text-[15px] text-muted-foreground"
-          >
-            Back to workouts
-          </button>
+          <div className="mt-4 flex items-center gap-5">
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="text-[15px] font-medium text-foreground active:opacity-60"
+            >
+              Try again
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="text-[15px] text-muted-foreground"
+            >
+              Back to workouts
+            </button>
+          </div>
         </div>
       ) : isPending || !workout ? (
         <div className="px-6 pb-20 pt-10">

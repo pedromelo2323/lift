@@ -41,6 +41,7 @@ export type ExerciseNote = {
 export type ExerciseWithData = Exercise & {
   note: string | null;
   sessions: ExerciseSession[];
+  all_time_best: SetEntry | null;
 };
 
 export type WorkoutDetail = Workout & {

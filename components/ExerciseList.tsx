@@ -126,7 +126,9 @@ export function ExerciseList({ workoutId, exercises, isEditing }: ExerciseListPr
             </button>
 
             {isExpanded && (
-              <SessionTable exercise={exercise} />
+              <div className="exercise-panel-in">
+                <SessionTable exercise={exercise} />
+              </div>
             )}
           </div>
         );

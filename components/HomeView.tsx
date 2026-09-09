@@ -8,7 +8,7 @@ import { SetupNotice } from "@/components/SetupNotice";
 import { usePrefetchWorkouts, useWorkouts } from "@/hooks/use-workouts";
 
 export function HomeView() {
-  const { data: workouts, isPending, isError } = useWorkouts();
+  const { data: workouts, isPending, isError, refetch } = useWorkouts();
   const prefetchWorkouts = usePrefetchWorkouts();
 
   useEffect(() => {
@@ -29,7 +29,16 @@ export function HomeView() {
         <p className="mt-1 text-[17px] text-muted-foreground">What are we training today?</p>
 
         {isError ? (
-          <p className="mt-10 text-[15px] text-muted-foreground">Couldn&apos;t load your workouts.</p>
+          <div className="mt-10">
+            <p className="text-[15px] text-muted-foreground">Couldn&apos;t load your workouts.</p>
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="mt-3 text-[15px] font-medium text-foreground active:opacity-60"
+            >
+              Try again
+            </button>
+          </div>
         ) : showSplash ? null : isPending ? (
           <ListSkeleton />
         ) : (

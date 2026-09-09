@@ -12,7 +12,7 @@ type ExerciseHistoryClientProps = {
 
 export function ExerciseHistoryClient({ exerciseId }: ExerciseHistoryClientProps) {
   const router = useRouter();
-  const { data, isPending, isError } = useExerciseHistory(exerciseId);
+  const { data, isPending, isError, refetch } = useExerciseHistory(exerciseId);
 
   const entries = data?.entries ?? [];
   const setCount = entries.reduce((acc, e) => Math.max(acc, e.sets.length), 0) || 3;
@@ -46,7 +46,16 @@ export function ExerciseHistoryClient({ exerciseId }: ExerciseHistoryClientProps
 
       <div className="mt-8">
         {isError ? (
-          <p className="text-[15px] text-muted-foreground">Couldn&apos;t load this history.</p>
+          <div>
+            <p className="text-[15px] text-muted-foreground">Couldn&apos;t load this history.</p>
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="mt-3 text-[15px] font-medium text-foreground active:opacity-60"
+            >
+              Try again
+            </button>
+          </div>
         ) : isPending ? (
           <div className="space-y-px">
             {[0, 1, 2, 3].map((i) => (

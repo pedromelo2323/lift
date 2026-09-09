@@ -7,7 +7,8 @@ import type {
   WorkoutWithMeta,
 } from "@/types";
 import { getTodayDateString } from "@/lib/utils/date";
-import { emptyTodaySessions, parseSets, sessionCutoffDate } from "@/lib/workouts/transform";
+import { isBetter } from "@/lib/utils/progress";
+import { emptyTodaySessions, parseSets } from "@/lib/workouts/transform";
 
 type Client = SupabaseClient<Database>;
 
@@ -67,7 +68,6 @@ export async function fetchWorkoutDetailFromDb(
   workoutId: string,
 ): Promise<WorkoutDetail | null> {
   const today = getTodayDateString();
-  const cutoff = sessionCutoffDate();
 
   const { data: workout, error } = await supabase
     .from("workouts")
@@ -103,7 +103,6 @@ export async function fetchWorkoutDetailFromDb(
       .from("exercise_sessions")
       .select("id, exercise_id, session_date, sets, note, created_at")
       .in("exercise_id", exerciseIds)
-      .gte("session_date", cutoff)
       .order("session_date", { ascending: false });
 
     if (withNote.error) {
@@ -111,7 +110,6 @@ export async function fetchWorkoutDetailFromDb(
         .from("exercise_sessions")
         .select("id, exercise_id, session_date, sets, created_at")
         .in("exercise_id", exerciseIds)
-        .gte("session_date", cutoff)
         .order("session_date", { ascending: false });
       if (withoutNote.error) throw new Error(withoutNote.error.message);
       sessions = withoutNote.data;
@@ -155,6 +153,12 @@ export async function fetchWorkoutDetailFromDb(
       (s) => s.session_date === today,
     );
     const latest = historyNewestFirst[0];
+    const allTimeBest = historyNewestFirst
+      .flatMap((session) => session.sets)
+      .reduce<ExerciseSession["sets"][number] | null>((best, set) => {
+        if (set.weight == null || set.reps == null) return best;
+        return !best || isBetter(set, best) ? set : best;
+      }, null);
 
     // Display: oldest → newest (up to 3), then Today last
     const historyOldestFirst = [...historyNewestFirst.slice(0, 3)].reverse();
@@ -189,6 +193,7 @@ export async function fetchWorkoutDetailFromDb(
       ...exercise,
       note: todayRow?.note ?? null,
       sessions: sessionsForExercise,
+      all_time_best: allTimeBest,
     };
   });
 

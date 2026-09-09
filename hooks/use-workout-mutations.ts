@@ -84,6 +84,7 @@ export function useWorkoutMutations(workoutId: string) {
               created_at: new Date().toISOString(),
               note: null,
               sessions: emptyTodaySessions(tempId, today),
+              all_time_best: null,
             },
           ],
         });
