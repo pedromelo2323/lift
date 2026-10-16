@@ -1,0 +1,2 @@
+ALTER TABLE public.exercises ADD COLUMN linked_to_next boolean NOT NULL DEFAULT false;
+COMMENT ON COLUMN public.exercises.linked_to_next IS 'True when this exercise forms a superset with the next exercise by position.';
