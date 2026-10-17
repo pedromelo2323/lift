@@ -166,7 +166,7 @@ export function AuthScreen() {
               <button
                 type="button"
                 onClick={forgotPassword}
-                className="text-[12px] text-muted-foreground underline underline-offset-4"
+                className="text-[11px] font-light text-muted-foreground/80 transition-opacity active:opacity-60"
               >
                 Forgot password?
               </button>
