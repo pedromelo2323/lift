@@ -7,7 +7,18 @@ import {
   workoutKey,
   workoutsKey,
 } from "@/lib/api/workouts";
+import { fetchProfile, profileKey } from "@/lib/api/profile";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
 import type { WorkoutDetail } from "@/types";
+
+export function useProfile() {
+  return useQuery({
+    queryKey: profileKey,
+    queryFn: fetchProfile,
+    enabled: isSupabaseConfigured(),
+    staleTime: 60 * 60_000,
+  });
+}
 
 export function useWorkouts() {
   return useQuery({
