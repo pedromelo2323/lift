@@ -15,18 +15,21 @@ export type Database = {
           name: string;
           sort_order: number;
           created_at: string;
+          user_id: string;
         };
         Insert: {
           id?: string;
           name: string;
           sort_order?: number;
           created_at?: string;
+          user_id?: string;
         };
         Update: {
           id?: string;
           name?: string;
           sort_order?: number;
           created_at?: string;
+          user_id?: string;
         };
         Relationships: [];
       };
@@ -38,6 +41,7 @@ export type Database = {
           sets_reps: string | null;
           sort_order: number;
           created_at: string;
+          user_id: string;
         };
         Insert: {
           id?: string;
@@ -46,6 +50,7 @@ export type Database = {
           sets_reps?: string | null;
           sort_order?: number;
           created_at?: string;
+          user_id?: string;
         };
         Update: {
           id?: string;
@@ -54,6 +59,7 @@ export type Database = {
           sets_reps?: string | null;
           sort_order?: number;
           created_at?: string;
+          user_id?: string;
         };
         Relationships: [
           {
@@ -73,6 +79,7 @@ export type Database = {
           sets: Json;
           note: string | null;
           created_at: string;
+          user_id: string;
         };
         Insert: {
           id?: string;
@@ -81,6 +88,7 @@ export type Database = {
           sets?: Json;
           note?: string | null;
           created_at?: string;
+          user_id?: string;
         };
         Update: {
           id?: string;
@@ -89,6 +97,7 @@ export type Database = {
           sets?: Json;
           note?: string | null;
           created_at?: string;
+          user_id?: string;
         };
         Relationships: [
           {
@@ -105,16 +114,19 @@ export type Database = {
           exercise_id: string;
           note: string;
           updated_at: string;
+          user_id: string;
         };
         Insert: {
           exercise_id: string;
           note?: string;
           updated_at?: string;
+          user_id?: string;
         };
         Update: {
           exercise_id?: string;
           note?: string;
           updated_at?: string;
+          user_id?: string;
         };
         Relationships: [
           {
@@ -134,6 +146,7 @@ export type Database = {
           resolved: boolean;
           created_at: string;
           updated_at: string;
+          user_id: string;
         };
         Insert: {
           id?: string;
@@ -142,6 +155,7 @@ export type Database = {
           resolved?: boolean;
           created_at?: string;
           updated_at?: string;
+          user_id?: string;
         };
         Update: {
           id?: string;
@@ -150,12 +164,39 @@ export type Database = {
           resolved?: boolean;
           created_at?: string;
           updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      profiles: {
+        Row: {
+          id: string;
+          display_name: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          display_name?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          display_name?: string | null;
+          created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      is_admin: {
+        Args: Record<PropertyKey, never>;
+        Returns: boolean;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

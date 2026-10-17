@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   createBugReport,
@@ -44,14 +45,17 @@ function formatWhen(iso: string) {
 }
 
 const DISMISS_DISTANCE = 110;
+const SIGNED_OUT_PATHS = ["/auth", "/reset-password", "/privacy", "/terms", "/support"];
 
 export function BugReportButton() {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [dragY, setDragY] = useState(0);
   const [body, setBody] = useState("");
   const [kind, setKind] = useState<BugKind>("bug");
   const [reports, setReports] = useState<BugReport[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -62,10 +66,14 @@ export function BugReportButton() {
     if (!open) return;
     inputRef.current?.focus();
     setLoading(true);
-    getBugReports()
-      .then(setReports)
-      .finally(() => setLoading(false));
+    refresh().finally(() => setLoading(false));
   }, [open]);
+
+  async function refresh() {
+    const next = await getBugReports();
+    setReports(next.reports);
+    setIsAdmin(next.isAdmin);
+  }
 
   function closeSheet() {
     setLeaving(true);
@@ -108,20 +116,21 @@ export function BugReportButton() {
 
     if (!result.error) {
       setBody("");
-      const next = await getBugReports();
-      setReports(next);
+      await refresh();
     }
   }
 
   async function handleToggle(id: string, resolved: boolean) {
     await toggleBugResolved(id, resolved);
-    setReports(await getBugReports());
+    await refresh();
   }
 
   async function handleDelete(id: string) {
     await deleteBugReport(id);
-    setReports(await getBugReports());
+    await refresh();
   }
+
+  if (SIGNED_OUT_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return null;
 
   return (
     <>
@@ -242,6 +251,7 @@ export function BugReportButton() {
                       {report.body}
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
+                      {isAdmin && report.reporter ? `${report.reporter} · ` : ""}
                       {report.kind} · {formatWhen(report.created_at)}
                     </p>
                   </div>

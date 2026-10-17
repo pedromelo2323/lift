@@ -1,4 +1,4 @@
-import { isSupabaseConfigured } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export function SetupNotice() {
   if (isSupabaseConfigured()) return null;

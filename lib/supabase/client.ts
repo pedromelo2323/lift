@@ -1,21 +1,27 @@
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 import type { Database } from "@/types/database";
+import { getSupabaseEnv } from "@/lib/supabase/env";
 
-export function createClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+export { isSupabaseConfigured } from "@/lib/supabase/env";
 
-  if (!url || !key) {
-    throw new Error("Missing Supabase environment variables.");
-  }
+type BrowserClient = ReturnType<typeof createBrowserClient<Database>>;
 
-  return createSupabaseClient<Database>(url, key);
+let browserClient: BrowserClient | null = null;
+let accessToken: string | null = null;
+
+export function createClient(): BrowserClient {
+  if (browserClient) return browserClient;
+  const { url, key } = getSupabaseEnv();
+  const client = createBrowserClient<Database>(url, key);
+  if (typeof window === "undefined") return client;
+  client.auth.onAuthStateChange((_event, session) => {
+    accessToken = session?.access_token ?? null;
+  });
+  browserClient = client;
+  return client;
 }
 
-export function isSupabaseConfigured() {
-  return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
-      !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("your-project"),
-  );
+// pagehide handlers can't await getSession() before iOS suspends the page.
+export function getCachedAccessToken() {
+  return accessToken;
 }

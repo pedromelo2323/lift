@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/client";
+import { createClient, getCachedAccessToken } from "@/lib/supabase/client";
 import { getTodayDateString } from "@/lib/utils/date";
 import type { ExerciseWithData, SetEntry } from "@/types";
 import { emptyTodaySessions } from "@/lib/workouts/transform";
@@ -113,6 +113,8 @@ export async function upsertExerciseSession(
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (!url || !key) throw new Error("Missing Supabase environment variables.");
+    const token = getCachedAccessToken();
+    if (!token) throw new Error("Not signed in");
 
     const response = await fetch(
       `${url}/rest/v1/exercise_sessions?on_conflict=exercise_id,session_date`,
@@ -121,7 +123,7 @@ export async function upsertExerciseSession(
         keepalive: true,
         headers: {
           apikey: key,
-          Authorization: `Bearer ${key}`,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
           Prefer: "resolution=merge-duplicates,return=minimal",
         },
