@@ -6,6 +6,9 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { PasswordRules, friendlyAuthError, passwordOk } from "@/components/auth/PasswordRules";
 
+// Off until a Google OAuth client is configured in Supabase.
+const googleEnabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH === "true";
+
 const inputClass =
   "w-full rounded-xl border border-border bg-background px-3 py-3 text-[15px] outline-none transition-colors focus:border-foreground";
 
@@ -108,20 +111,24 @@ export function AuthScreen() {
       </div>
 
       <div className="auth-in mt-10" style={{ animationDelay: "150ms" }}>
-        <button
-          type="button"
-          onClick={continueWithGoogle}
-          className="flex w-full items-center justify-center gap-3 rounded-xl border border-border py-3 text-[15px] transition-colors active:bg-secondary"
-        >
-          <GoogleIcon />
-          Continue with Google
-        </button>
+        {googleEnabled ? (
+          <>
+            <button
+              type="button"
+              onClick={continueWithGoogle}
+              className="flex w-full items-center justify-center gap-3 rounded-xl border border-border py-3 text-[15px] transition-colors active:bg-secondary"
+            >
+              <GoogleIcon />
+              Continue with Google
+            </button>
 
-        <div className="my-6 flex items-center gap-3 text-[12px] text-muted-foreground">
-          <span className="h-px flex-1 bg-border" />
-          or
-          <span className="h-px flex-1 bg-border" />
-        </div>
+            <div className="my-6 flex items-center gap-3 text-[12px] text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              or
+              <span className="h-px flex-1 bg-border" />
+            </div>
+          </>
+        ) : null}
 
         <form onSubmit={submit} className="space-y-3">
           <input

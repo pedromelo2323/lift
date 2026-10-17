@@ -38,6 +38,10 @@ export function friendlyAuthError(message: string) {
   if (m.includes("invalid login credentials")) return "Wrong email or password.";
   if (m.includes("already registered")) return "There's already an account with this email. Sign in instead.";
   if (m.includes("email not confirmed")) return "Confirm your email first — check your inbox.";
+  if (m.includes("not authorized")) {
+    return "Password reset by email isn't set up yet. Ask whoever invited you to reset it.";
+  }
+  if (m.includes("rate limit")) return "Too many emails sent. Try again in an hour.";
   return message;
 }
 
