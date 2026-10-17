@@ -6,8 +6,8 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { PasswordRules, friendlyAuthError, passwordOk } from "@/components/auth/PasswordRules";
 
-// Off until a Google OAuth client is configured in Supabase.
-const googleEnabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH === "true";
+// Set NEXT_PUBLIC_GOOGLE_AUTH=false to hide Google sign-in if the provider is ever disabled.
+const googleEnabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH !== "false";
 
 const inputClass =
   "w-full rounded-xl border border-border bg-background px-3 py-3 text-[15px] outline-none transition-colors focus:border-foreground";
