@@ -79,7 +79,7 @@ export async function fetchWorkoutDetailFromDb(
 
   const { data: exercises, error: exercisesError } = await supabase
     .from("exercises")
-    .select("id, workout_id, name, sets_reps, sort_order, created_at")
+    .select("id, workout_id, name, sets_reps, sort_order, created_at, linked_to_next")
     .eq("workout_id", workoutId)
     .order("sort_order");
 

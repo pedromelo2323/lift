@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { AppSplash } from "@/components/AppSplash";
+import { InstallHint } from "@/components/InstallHint";
 import { WorkoutRow } from "@/components/WorkoutRow";
 import { ListSkeleton } from "@/components/LoadingSkeleton";
 import { SetupNotice } from "@/components/SetupNotice";
@@ -32,7 +34,14 @@ export function HomeView() {
   return (
     <>
       <AppSplash isLoading={showSplash} />
-      <div className="px-6 pb-16 pt-16">
+      <div className="relative px-6 pb-16 pt-16">
+        <Link
+          href="/settings"
+          aria-label="Settings"
+          className="absolute right-4 top-5 p-2 text-muted-foreground transition-opacity active:opacity-60"
+        >
+          <SettingsIcon />
+        </Link>
         <SetupNotice />
 
         <h1 className="text-[32px] font-semibold leading-tight tracking-tight">
@@ -58,9 +67,33 @@ export function HomeView() {
             {workouts?.map((workout) => (
               <WorkoutRow key={workout.id} workout={workout} />
             ))}
+            <InstallHint />
           </div>
         )}
       </div>
     </>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 7h10" />
+      <path d="M18 7h2" />
+      <circle cx="16" cy="7" r="2" />
+      <path d="M4 17h2" />
+      <path d="M10 17h10" />
+      <circle cx="8" cy="17" r="2" />
+    </svg>
   );
 }

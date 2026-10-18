@@ -126,12 +126,25 @@ export function ExerciseList({ workoutId, exercises, isEditing }: ExerciseListPr
 
   return (
     <div>
-      {exercises.map((exercise) => {
+      {exercises.map((exercise, index) => {
         const isExpanded = expandedId === exercise.id;
         const repRange = formatRepRange(exercise.sets_reps);
+        const pairedWithPrevious = Boolean(exercises[index - 1]?.linked_to_next);
+        const inSuperset = exercise.linked_to_next || pairedWithPrevious;
 
         return (
-          <div key={exercise.id} className="border-b border-border">
+          <div key={exercise.id} className="relative border-b border-border">
+            {inSuperset ? (
+              <span
+                aria-hidden="true"
+                className={`absolute -left-3 w-px bg-foreground/40 ${pairedWithPrevious ? "top-0" : "top-4"} ${
+                  exercise.linked_to_next ? "bottom-0" : "bottom-4"
+                }`}
+              />
+            ) : null}
+            {inSuperset && !pairedWithPrevious ? (
+              <p className="pt-3 text-[11px] uppercase tracking-wider text-muted-foreground">Superset</p>
+            ) : null}
             <button
               type="button"
               onClick={() => setExpandedId(isExpanded ? null : exercise.id)}

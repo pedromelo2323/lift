@@ -38,6 +38,17 @@ export function WorkoutPageClient({ workoutId }: WorkoutPageClientProps) {
             </button>
           </div>
         </div>
+      ) : !isPending && !workout ? (
+        <div className="px-6 pb-20 pt-10">
+          <p className="mt-10 text-[15px] text-muted-foreground">This workout isn&apos;t here anymore.</p>
+          <button
+            type="button"
+            onClick={() => router.replace("/")}
+            className="mt-4 text-[15px] font-medium text-foreground active:opacity-60"
+          >
+            Back to workouts
+          </button>
+        </div>
       ) : isPending || !workout ? (
         <div className="px-6 pb-20 pt-10">
           <SetupNotice />
