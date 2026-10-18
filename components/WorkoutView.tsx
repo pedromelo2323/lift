@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { WorkoutDetail } from "@/types";
+import { DeleteWorkoutButton } from "@/components/DeleteWorkoutButton";
 import { ExerciseList } from "@/components/ExerciseList";
 import { SaveStatusProvider } from "@/components/SaveStatus";
 import { WorkoutHeader } from "@/components/WorkoutHeader";
@@ -29,6 +30,7 @@ export function WorkoutView({ workout }: WorkoutViewProps) {
             isEditing={isEditing}
           />
         </div>
+        {isEditing ? <DeleteWorkoutButton workoutId={workout.id} /> : null}
       </div>
     </SaveStatusProvider>
   );

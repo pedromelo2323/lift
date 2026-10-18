@@ -178,7 +178,7 @@ export async function addExercise(workoutId: string, name: string): Promise<Exer
       name: name.trim() || "New exercise",
       sort_order: nextOrder,
     })
-    .select("id, workout_id, name, sets_reps, sort_order, created_at")
+    .select("id, workout_id, name, sets_reps, sort_order, created_at, linked_to_next")
     .single();
 
   if (error || !data) throw new Error(error?.message ?? "Failed to add exercise");
@@ -189,6 +189,11 @@ export async function addExercise(workoutId: string, name: string): Promise<Exer
     sessions: emptyTodaySessions(data.id, today),
     all_time_best: null,
   };
+}
+
+export async function deleteWorkout(workoutId: string) {
+  const { error } = await supabase().from("workouts").delete().eq("id", workoutId);
+  if (error) throw new Error(error.message);
 }
 
 export async function deleteExercise(exerciseId: string) {

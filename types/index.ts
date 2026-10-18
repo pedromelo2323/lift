@@ -21,6 +21,8 @@ export type Exercise = {
   sets_reps: string | null;
   sort_order: number;
   created_at: string;
+  /** Superset with the next exercise by sort_order. */
+  linked_to_next: boolean;
 };
 
 export type ExerciseSession = {

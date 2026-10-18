@@ -1,11 +1,12 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { BackIcon, CloseIcon, MicIcon, PlusIcon, StopIcon } from "@/components/onboarding/icons";
 import { PlanPreview } from "@/components/onboarding/PlanPreview";
-import { useProfile } from "@/hooks/use-workouts";
+import { useProfile, useWorkouts } from "@/hooks/use-workouts";
 import { useVoiceNotes } from "@/hooks/use-voice-notes";
 import { firstName, profileKey } from "@/lib/api/profile";
 import { workoutsKey } from "@/lib/api/workouts";
@@ -43,6 +44,8 @@ export function Onboarding() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: profile } = useProfile();
+  const { data: workouts } = useWorkouts();
+  const hasWorkouts = Boolean(workouts?.length);
   const [step, setStep] = useState<Step>({ kind: "about" });
   const [name, setName] = useState<string | null>(null);
   const [about, setAbout] = useState<Partial<AboutYou>>({});
@@ -56,8 +59,24 @@ export function Onboarding() {
 
   useEffect(() => {
     void (async () => {
-      const { data } = await createClient().from("plan_usage").select("plan_generations").maybeSingle();
-      if (data) setRemaining(Math.max(0, PLAN_LIMIT - data.plan_generations));
+      const supabase = createClient();
+      const { data: auth } = await supabase.auth.getSession();
+      const userId = auth.session?.user.id;
+      if (!userId) return;
+      const [{ data: usage }, { data: saved }] = await Promise.all([
+        supabase.from("plan_usage").select("plan_generations").eq("user_id", userId).maybeSingle(),
+        supabase
+          .from("profiles")
+          .select("age_range, sex, goal, days_per_week, session_minutes, experience")
+          .eq("id", userId)
+          .maybeSingle(),
+      ]);
+      if (usage) setRemaining(Math.max(0, PLAN_LIMIT - usage.plan_generations));
+      // Building again: start from last time's answers.
+      if (saved) {
+        const previous = Object.fromEntries(Object.entries(saved).filter(([, v]) => v != null));
+        setAbout((current) => ({ ...(previous as Partial<AboutYou>), ...current }));
+      }
     })();
   }, []);
 
@@ -134,6 +153,7 @@ export function Onboarding() {
             }}
             onReady={() => setStep({ kind: "choose" })}
             onCustom={() => setStep({ kind: "custom" })}
+            again={hasWorkouts}
           />
         ) : step.kind === "describe" ? (
           <Describe notes={notes} onNotes={setNotes} onBuild={build} />
@@ -219,7 +239,9 @@ function About({
   onNext,
   onReady,
   onCustom,
+  again,
 }: {
+  again: boolean;
   name: string;
   onName: (value: string) => void;
   value: Partial<AboutYou>;
@@ -243,9 +265,17 @@ function About({
 
   return (
     <>
-      <h1 className="text-[32px] font-semibold leading-tight tracking-tight">Let&apos;s build your plan</h1>
+      {again ? (
+        <Link href="/" className="-mt-2 mb-6 inline-block text-[15px] text-muted-foreground active:opacity-60">
+          Cancel
+        </Link>
+      ) : null}
+      <h1 className="text-[32px] font-semibold leading-tight tracking-tight">
+        {again ? "Build a new plan" : "Let\u2019s build your plan"}
+      </h1>
       <p className="mt-1 text-[17px] text-muted-foreground">
         Start from a plan, make your own, or answer a few questions and get one built for you.
+        {again ? " It\u2019s added next to your current workouts." : ""}
       </p>
 
       <div className="mt-6 grid grid-cols-2 gap-2">
