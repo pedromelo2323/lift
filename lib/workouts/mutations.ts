@@ -17,6 +17,14 @@ export async function updateExerciseName(exerciseId: string, name: string) {
   if (error) throw new Error(error.message);
 }
 
+export async function updateExerciseSetsReps(exerciseId: string, setsReps: string | null) {
+  const { error } = await supabase()
+    .from("exercises")
+    .update({ sets_reps: setsReps })
+    .eq("id", exerciseId);
+  if (error) throw new Error(error.message);
+}
+
 export async function updateExerciseNote(
   exerciseId: string,
   note: string,

@@ -1,4 +1,5 @@
 // Shared by the onboarding screens and the plan API route.
+import { normalizeSetsReps } from "@/lib/utils/workout";
 
 export const GOALS = ["Get stronger", "Build muscle", "Tone & lean", "General fitness"] as const;
 export const DAYS = [2, 3, 4, 5, 6] as const;
@@ -173,7 +174,7 @@ export function toCreatePlanInput(workouts: PlanWorkout[]) {
       name: workout.name.trim(),
       exercises: exercises.map((e, i) => ({
         name: e.name.trim(),
-        sets_reps: e.sets_reps,
+        sets_reps: normalizeSetsReps(e.sets_reps),
         linked_to_next: Boolean(e.linked_to_next) && i < exercises.length - 1,
       })),
     };

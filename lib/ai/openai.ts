@@ -119,12 +119,12 @@ export async function generatePlans(about: AboutYou, notes: string): Promise<Pla
 Split preference: ${about.split || "no preference — you decide"}. Days per week: ${about.days_per_week}. Session length: ${about.session_minutes} min. Units: kg.
 In their own words: ${notes || "(nothing — just build something great)"}`;
 
-  const reasoning = process.env.OPENAI_PLAN_REASONING ?? "low";
+  const reasoning = process.env.OPENAI_PLAN_REASONING ?? "none";
   const res = await fetch(`${API}/responses`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey()}` },
     body: JSON.stringify({
-      model: process.env.OPENAI_PLAN_MODEL ?? "gpt-6.1-sol",
+      model: process.env.OPENAI_PLAN_MODEL ?? "gpt-6-luna",
       instructions: INSTRUCTIONS,
       input,
       store: false,

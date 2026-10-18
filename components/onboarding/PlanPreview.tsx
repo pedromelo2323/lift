@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import { CloseIcon } from "@/components/onboarding/icons";
-import { formatRepRange } from "@/lib/utils/workout";
 import type { Plan, PlanExercise } from "@/lib/onboarding/plan";
 
 type Props = {
@@ -13,12 +12,6 @@ type Props = {
   onRegenerate: () => void;
   onConfirm: (plan: Plan) => void;
 };
-
-function setsLabel(setsReps: string) {
-  const sets = setsReps.match(/^(\d+)\s*[×x*]/)?.[1];
-  const reps = formatRepRange(setsReps);
-  return sets ? `${sets} × ${reps}` : reps;
-}
 
 export function PlanPreview({ options, note, busy, canRegenerate, onRegenerate, onConfirm }: Props) {
   const [plans, setPlans] = useState(options);
@@ -116,9 +109,18 @@ export function PlanPreview({ options, note, busy, canRegenerate, onRegenerate, 
                             }
                             className="min-w-0 flex-1 bg-transparent py-1 outline-none"
                           />
-                          <span className="shrink-0 text-[13px] text-muted-foreground">
-                            {setsLabel(exercise.sets_reps)}
-                          </span>
+                          <input
+                            value={exercise.sets_reps}
+                            aria-label={`Sets × reps for ${exercise.name}`}
+                            placeholder="3×10"
+                            maxLength={20}
+                            onChange={(e) =>
+                              updateExercises(planIndex, workoutIndex, (all) =>
+                                all.map((x, j) => (j === exerciseIndex ? { ...x, sets_reps: e.target.value } : x)),
+                              )
+                            }
+                            className="w-[4.5rem] shrink-0 bg-transparent text-right text-[13px] tabular-nums text-muted-foreground outline-none placeholder:text-muted-foreground/40"
+                          />
                           <button
                             type="button"
                             aria-label={`Remove ${exercise.name}`}
