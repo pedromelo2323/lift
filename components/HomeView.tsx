@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { AppSplash } from "@/components/AppSplash";
 import { WorkoutRow } from "@/components/WorkoutRow";
@@ -13,12 +14,18 @@ export function HomeView() {
   const { data: profile } = useProfile();
   const name = firstName(profile?.displayName);
   const prefetchWorkouts = usePrefetchWorkouts();
+  const router = useRouter();
 
   useEffect(() => {
     if (workouts?.length) {
       prefetchWorkouts(workouts.map((w) => w.id));
     }
   }, [workouts, prefetchWorkouts]);
+
+  // New accounts start with no workouts: send them to build a plan.
+  useEffect(() => {
+    if (!isPending && !isError && workouts?.length === 0) router.replace("/onboarding");
+  }, [isPending, isError, workouts, router]);
 
   const showSplash = isPending && !workouts;
 

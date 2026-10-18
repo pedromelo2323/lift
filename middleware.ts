@@ -48,6 +48,9 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  if (!signedIn && pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
   if (!signedIn && !isPublic(pathname)) return redirectTo(request, "/auth", response);
   if (signedIn && pathname === "/auth") return redirectTo(request, "/", response);
 
