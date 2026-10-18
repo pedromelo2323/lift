@@ -343,7 +343,7 @@ function Building() {
         <div className="building-bar h-px w-1/3 bg-foreground" />
       </div>
       <p className="mt-6 text-[19px] tracking-tight">Building your plan</p>
-      <p className="mt-1 text-[13px] text-muted-foreground">Picking exercises, sets and reps for you.</p>
+      <p className="mt-1 text-[13px] text-muted-foreground">Picking exercises, sets and reps for you. Takes about half a minute.</p>
     </div>
   );
 }
