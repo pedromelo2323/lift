@@ -198,6 +198,19 @@ function Chips<T extends string | number>({
   );
 }
 
+function Shortcut({ title, detail, onClick }: { title: string; detail: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-xl border border-border px-4 py-3.5 text-left transition-colors active:bg-secondary"
+    >
+      <span className="block text-[15px] font-medium">{title}</span>
+      <span className="mt-0.5 block text-[12px] text-muted-foreground">{detail}</span>
+    </button>
+  );
+}
+
 function About({
   name,
   onName,
@@ -230,17 +243,21 @@ function About({
 
   return (
     <>
-      <div className="mb-6 flex items-center justify-end gap-4 text-[13px] text-muted-foreground">
-        <button type="button" onClick={onReady} className="active:text-foreground">
-          Ready plans
-        </button>
-        <span className="h-3 w-px bg-border" />
-        <button type="button" onClick={onCustom} className="active:text-foreground">
-          Build my own
-        </button>
-      </div>
       <h1 className="text-[32px] font-semibold leading-tight tracking-tight">Let&apos;s build your plan</h1>
-      <p className="mt-1 text-[17px] text-muted-foreground">A few taps. Takes ten seconds.</p>
+      <p className="mt-1 text-[17px] text-muted-foreground">
+        Start from a plan, make your own, or answer a few questions and get one built for you.
+      </p>
+
+      <div className="mt-6 grid grid-cols-2 gap-2">
+        <Shortcut title="Ready plans" detail="Pick a proven split" onClick={onReady} />
+        <Shortcut title="Build my own" detail="Name your workouts" onClick={onCustom} />
+      </div>
+
+      <div className="mt-8 flex items-center gap-3 text-[12px] text-muted-foreground">
+        <span className="h-px flex-1 bg-border" />
+        or build it for me
+        <span className="h-px flex-1 bg-border" />
+      </div>
 
       <Label>Your name</Label>
       <input
