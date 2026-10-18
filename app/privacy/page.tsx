@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" updated="October 17, 2026">
+    <LegalPage title="Privacy Policy" updated="October 18, 2026">
       <p>
         Lift is a small, non-commercial workout log shared with friends. It keeps only what&apos;s
         needed to remember your training.
@@ -20,7 +20,18 @@ export default function PrivacyPage() {
         address and profile picture; Lift uses only your name and email.
       </p>
       <p>Your workouts, exercises, sets, notes, and any feedback or bug reports you send.</p>
+      <p>
+        If you build a plan, your answers (age range, sex, goal, days per week, session length and
+        experience) are saved to your account.
+      </p>
       <p>Unsaved changes to a workout are kept on your device until they sync.</p>
+
+      <h2>Plan builder and voice</h2>
+      <p>
+        To build a plan, your answers and anything you type or say about your training are sent to
+        OpenAI. Voice recordings are sent to OpenAI to be turned into text; Lift doesn&apos;t keep
+        the audio. Under OpenAI&apos;s API terms, this data isn&apos;t used to train their models.
+      </p>
 
       <h2>How it&apos;s used</h2>
       <p>
@@ -40,7 +51,7 @@ export default function PrivacyPage() {
       <h2>Where it lives</h2>
       <p>
         Data is stored with Supabase (database and sign-in, hosted in Ireland, EU). The app is
-        served by Vercel.
+        served by Vercel. Plan building and voice use OpenAI.
       </p>
 
       <h2>Deleting your data</h2>

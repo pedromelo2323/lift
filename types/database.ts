@@ -39,6 +39,7 @@ export type Database = {
           workout_id: string;
           name: string;
           sets_reps: string | null;
+          linked_to_next: boolean;
           sort_order: number;
           created_at: string;
           user_id: string;
@@ -48,6 +49,7 @@ export type Database = {
           workout_id: string;
           name: string;
           sets_reps?: string | null;
+          linked_to_next?: boolean;
           sort_order?: number;
           created_at?: string;
           user_id?: string;
@@ -57,6 +59,7 @@ export type Database = {
           workout_id?: string;
           name?: string;
           sets_reps?: string | null;
+          linked_to_next?: boolean;
           sort_order?: number;
           created_at?: string;
           user_id?: string;
@@ -172,21 +175,51 @@ export type Database = {
         Row: {
           id: string;
           display_name: string | null;
+          age_range: string | null;
+          sex: string | null;
+          goal: string | null;
+          days_per_week: number | null;
+          session_minutes: number | null;
+          experience: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id: string;
           display_name?: string | null;
+          age_range?: string | null;
+          sex?: string | null;
+          goal?: string | null;
+          days_per_week?: number | null;
+          session_minutes?: number | null;
+          experience?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
           display_name?: string | null;
+          age_range?: string | null;
+          sex?: string | null;
+          goal?: string | null;
+          days_per_week?: number | null;
+          session_minutes?: number | null;
+          experience?: string | null;
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
+      };
+      plan_usage: {
+        Row: {
+          user_id: string;
+          plan_generations: number;
+          voice_day: string | null;
+          voice_count: number;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: never;
         Relationships: [];
       };
     };
@@ -195,6 +228,18 @@ export type Database = {
       is_admin: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
+      };
+      claim_plan_generation: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
+      };
+      claim_voice_transcription: {
+        Args: Record<PropertyKey, never>;
+        Returns: boolean;
+      };
+      create_plan: {
+        Args: { plan: Json };
+        Returns: undefined;
       };
     };
     Enums: Record<string, never>;

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { ExerciseWithData } from "@/types";
-import { formatRepRange } from "@/lib/utils/workout";
+import { formatRepRange, normalizeSetsReps } from "@/lib/utils/workout";
 import { SessionTable } from "@/components/SessionTable";
 import { useWorkoutMutations } from "@/hooks/use-workout-mutations";
 
@@ -36,7 +36,7 @@ function ChevronRight({ expanded }: { expanded: boolean }) {
 }
 
 export function ExerciseList({ workoutId, exercises, isEditing }: ExerciseListProps) {
-  const { renameExercise, createExercise, removeExercise, moveExercise } =
+  const { renameExercise, setExerciseSetsReps, createExercise, removeExercise, moveExercise } =
     useWorkoutMutations(workoutId);
   const [expandedId, setExpandedId] = useState<string | null>(
     exercises[0]?.id ?? null,
@@ -44,6 +44,7 @@ export function ExerciseList({ workoutId, exercises, isEditing }: ExerciseListPr
   const [names, setNames] = useState<Record<string, string>>(() =>
     Object.fromEntries(exercises.map((e) => [e.id, e.name])),
   );
+  const [setsReps, setSetsReps] = useState<Record<string, string>>({});
 
   function handleRename(exerciseId: string, name: string) {
     const trimmed = name.trim();
@@ -53,19 +54,40 @@ export function ExerciseList({ workoutId, exercises, isEditing }: ExerciseListPr
     }
   }
 
+  function handleSetsReps(exerciseId: string, value: string) {
+    const next = normalizeSetsReps(value);
+    const current = exercises.find((e) => e.id === exerciseId)?.sets_reps ?? null;
+    setSetsReps((all) => ({ ...all, [exerciseId]: next ?? "" }));
+    if (next !== current) setExerciseSetsReps.mutate({ exerciseId, setsReps: next });
+  }
+
   if (isEditing) {
     return (
       <div>
         {exercises.map((exercise, index) => (
           <div key={exercise.id} className="flex items-center gap-2 border-b border-border py-3">
-            <input
-              value={names[exercise.id] ?? exercise.name}
-              onChange={(e) =>
-                setNames((current) => ({ ...current, [exercise.id]: e.target.value }))
-              }
-              onBlur={() => handleRename(exercise.id, names[exercise.id] ?? exercise.name)}
-              className="min-w-0 flex-1 bg-transparent text-[17px] outline-none"
-            />
+            <div className="min-w-0 flex-1">
+              <input
+                value={names[exercise.id] ?? exercise.name}
+                aria-label="Exercise name"
+                onChange={(e) =>
+                  setNames((current) => ({ ...current, [exercise.id]: e.target.value }))
+                }
+                onBlur={() => handleRename(exercise.id, names[exercise.id] ?? exercise.name)}
+                className="w-full bg-transparent text-[17px] outline-none"
+              />
+              <input
+                value={setsReps[exercise.id] ?? exercise.sets_reps ?? ""}
+                aria-label="Sets × reps"
+                placeholder="Sets × reps, e.g. 3×10"
+                maxLength={20}
+                onChange={(e) =>
+                  setSetsReps((current) => ({ ...current, [exercise.id]: e.target.value }))
+                }
+                onBlur={(e) => handleSetsReps(exercise.id, e.target.value)}
+                className="mt-0.5 w-full bg-transparent text-[13px] tabular-nums text-muted-foreground outline-none placeholder:text-muted-foreground/40"
+              />
+            </div>
             <button
               type="button"
               onClick={() => moveExercise.mutate({ exerciseId: exercise.id, direction: "up" })}

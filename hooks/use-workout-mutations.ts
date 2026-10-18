@@ -5,6 +5,7 @@ import {
   deleteExercise,
   reorderExercise,
   updateExerciseName,
+  updateExerciseSetsReps,
   updateWorkoutName,
 } from "@/lib/workouts/mutations";
 import type { WorkoutDetail } from "@/types";
@@ -52,6 +53,27 @@ export function useWorkoutMutations(workoutId: string) {
           ...previous,
           exercises: previous.exercises.map((e) =>
             e.id === exerciseId ? { ...e, name } : e,
+          ),
+        });
+      }
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(detailKey, context.previous);
+    },
+  });
+
+  const setExerciseSetsReps = useMutation({
+    mutationFn: ({ exerciseId, setsReps }: { exerciseId: string; setsReps: string | null }) =>
+      updateExerciseSetsReps(exerciseId, setsReps),
+    onMutate: async ({ exerciseId, setsReps }) => {
+      await queryClient.cancelQueries({ queryKey: detailKey });
+      const previous = queryClient.getQueryData<WorkoutDetail>(detailKey);
+      if (previous) {
+        queryClient.setQueryData(detailKey, {
+          ...previous,
+          exercises: previous.exercises.map((e) =>
+            e.id === exerciseId ? { ...e, sets_reps: setsReps } : e,
           ),
         });
       }
@@ -158,6 +180,7 @@ export function useWorkoutMutations(workoutId: string) {
   return {
     renameWorkout,
     renameExercise,
+    setExerciseSetsReps,
     createExercise,
     removeExercise,
     moveExercise,

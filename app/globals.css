@@ -140,13 +140,38 @@ textarea {
   animation: auth-in 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+@keyframes step-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.step-in {
+  animation: step-in 300ms ease-out both;
+}
+
+@keyframes building-bar {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+
+.building-bar {
+  animation: building-bar 1.2s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rest-timer-pill-in,
   .rest-timer-pill-out,
   .exercise-panel-in,
   .cell-saved,
   .save-state-saved,
-  .auth-in {
+  .auth-in,
+  .step-in {
     animation: none;
   }
 
