@@ -28,6 +28,7 @@ export function useVoiceNotes(onText: (text: string) => void) {
       const body = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
       if (body.text) onTextRef.current(body.text);
       else if (body.error === "limit") setError("That's enough voice for today. You can type instead.");
+      else if (body.error === "unavailable") setError("Voice isn't available right now. You can type instead.");
       else setError("Didn't catch that. Try again or type it.");
     } catch {
       setError("Didn't catch that. Try again or type it.");
