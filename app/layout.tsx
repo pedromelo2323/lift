@@ -15,14 +15,14 @@ export const metadata: Metadata = {
   formatDetection: {
     telephone: false,
   },
-  manifest: "/manifest.json",
+  manifest: "/lift.webmanifest",
   icons: {
     icon: [
-      { url: "/favicon.png?v=2", sizes: "32x32", type: "image/png" },
-      { url: "/icon-192.png?v=2", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png?v=2", sizes: "512x512", type: "image/png" },
+      { url: "/favicon.png?v=3", sizes: "32x32", type: "image/png" },
+      { url: "/icons/lift-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/lift-512.png", sizes: "512x512", type: "image/png" },
     ],
-    apple: [{ url: "/apple-touch-icon.png?v=2", sizes: "180x180", type: "image/png" }],
+    apple: [{ url: "/icons/lift-180.png", sizes: "180x180", type: "image/png" }],
   },
 };
 
