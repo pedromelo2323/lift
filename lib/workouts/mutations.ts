@@ -201,32 +201,21 @@ export async function deleteExercise(exerciseId: string) {
   if (error) throw new Error(error.message);
 }
 
-export async function reorderExercise(
-  workoutId: string,
-  exerciseId: string,
-  direction: "up" | "down",
-) {
+export type ExerciseLayout = { id: string; linked_to_next: boolean }[];
+
+/** Saves order and superset pairing; positions follow the array order. */
+export async function saveExerciseLayout(layout: ExerciseLayout) {
   const client = supabase();
-  const { data: exercises, error } = await client
-    .from("exercises")
-    .select("id, sort_order")
-    .eq("workout_id", workoutId)
-    .order("sort_order");
-
-  if (error || !exercises) throw new Error(error?.message ?? "Failed to load exercises");
-
-  const index = exercises.findIndex((e) => e.id === exerciseId);
-  const swapIndex = direction === "up" ? index - 1 : index + 1;
-
-  if (index === -1 || swapIndex < 0 || swapIndex >= exercises.length) return;
-
-  const current = exercises[index]!;
-  const target = exercises[swapIndex]!;
-
-  const [{ error: a }, { error: b }] = await Promise.all([
-    client.from("exercises").update({ sort_order: target.sort_order }).eq("id", current.id),
-    client.from("exercises").update({ sort_order: current.sort_order }).eq("id", target.id),
-  ]);
-
-  if (a || b) throw new Error(a?.message ?? b?.message ?? "Failed to reorder");
+  const results = await Promise.all(
+    layout
+      .filter((item) => !item.id.startsWith("temp-"))
+      .map((item, index) =>
+        client
+          .from("exercises")
+          .update({ sort_order: index + 1, linked_to_next: item.linked_to_next })
+          .eq("id", item.id),
+      ),
+  );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw new Error(failed.error.message);
 }

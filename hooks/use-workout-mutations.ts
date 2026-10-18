@@ -3,7 +3,8 @@ import { workoutKey, workoutsKey } from "@/lib/api/workouts";
 import {
   addExercise,
   deleteExercise,
-  reorderExercise,
+  saveExerciseLayout,
+  type ExerciseLayout,
   updateExerciseName,
   updateExerciseSetsReps,
   updateWorkoutName,
@@ -103,6 +104,7 @@ export function useWorkoutMutations(workoutId: string) {
               name,
               sets_reps: null,
               sort_order: previous.exercises.length + 1,
+              linked_to_next: false,
               created_at: new Date().toISOString(),
               note: null,
               sessions: emptyTodaySessions(tempId, today),
@@ -148,32 +150,26 @@ export function useWorkoutMutations(workoutId: string) {
     },
   });
 
-  const moveExercise = useMutation({
-    mutationFn: ({
-      exerciseId,
-      direction,
-    }: {
-      exerciseId: string;
-      direction: "up" | "down";
-    }) => reorderExercise(workoutId, exerciseId, direction),
-    onMutate: async ({ exerciseId, direction }) => {
+  // Serialized so an older layout can never land after a newer one.
+  const arrangeExercises = useMutation({
+    scope: { id: `exercise-layout-${workoutId}` },
+    mutationFn: (layout: ExerciseLayout) => saveExerciseLayout(layout),
+    onMutate: async (layout) => {
       await queryClient.cancelQueries({ queryKey: detailKey });
       const previous = queryClient.getQueryData<WorkoutDetail>(detailKey);
-      if (!previous) return { previous };
-
-      const index = previous.exercises.findIndex((e) => e.id === exerciseId);
-      const swapIndex = direction === "up" ? index - 1 : index + 1;
-      if (index === -1 || swapIndex < 0 || swapIndex >= previous.exercises.length) {
-        return { previous };
+      if (previous) {
+        const byId = new Map(previous.exercises.map((e) => [e.id, e]));
+        const exercises = layout.flatMap((item, index) => {
+          const exercise = byId.get(item.id);
+          return exercise ? [{ ...exercise, sort_order: index + 1, linked_to_next: item.linked_to_next }] : [];
+        });
+        queryClient.setQueryData<WorkoutDetail>(detailKey, { ...previous, exercises });
       }
-
-      const next = [...previous.exercises];
-      [next[index], next[swapIndex]] = [next[swapIndex]!, next[index]!];
-      queryClient.setQueryData(detailKey, { ...previous, exercises: next });
       return { previous };
     },
-    onError: (_err, _vars, context) => {
+    onError: (_err, _layout, context) => {
       if (context?.previous) queryClient.setQueryData(detailKey, context.previous);
+      void queryClient.invalidateQueries({ queryKey: detailKey });
     },
   });
 
@@ -183,6 +179,6 @@ export function useWorkoutMutations(workoutId: string) {
     setExerciseSetsReps,
     createExercise,
     removeExercise,
-    moveExercise,
+    arrangeExercises,
   };
 }
